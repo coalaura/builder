@@ -32,6 +32,7 @@ func main() {
 func NewCLI() *cli.Command {
 	return &cli.Command{
 		Name:           "builder",
+		Version:        Version,
 		Usage:          "build, run, test and benchmark projects",
 		ExitErrHandler: func(context.Context, *cli.Command, error) {},
 		Commands: []*cli.Command{
