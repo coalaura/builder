@@ -40,8 +40,8 @@ func ExecuteTest(req *Request) error {
 		args := []string{"test", "-json"}
 
 		args = append(args, resolveTagArgs(cfg.BuildFlags)...)
-		args = append(args, cfg.Extra...)
 		args = append(args, target)
+		args = append(args, cfg.Extra...)
 
 		return runGoTest(req.Project, cfg.Env, args)
 	case "js":

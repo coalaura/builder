@@ -13,6 +13,7 @@ type Request struct {
 	Language  string
 	TargetOS  string
 	Target    string
+	Package   string
 	Pure      bool
 	Compat    bool
 	Minify    bool
@@ -33,7 +34,9 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 
 	var forwarding bool
 
-	for _, arg := range args {
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+
 		if forwarding {
 			req.Forward = append(req.Forward, arg)
 
@@ -47,6 +50,26 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 		}
 
 		lower := strings.ToLower(arg)
+
+		if lower == "--package" {
+			if i+1 >= len(args) || args[i+1] == "--" {
+				return nil, fmt.Errorf("--package requires a value")
+			}
+
+			i++
+			req.Package = args[i]
+
+			continue
+		}
+
+		if strings.HasPrefix(lower, "--package=") {
+			req.Package = arg[len("--package="):]
+			if req.Package == "" {
+				return nil, fmt.Errorf("--package requires a value")
+			}
+
+			continue
+		}
 
 		switch lower {
 		case "--pure":
@@ -96,6 +119,9 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 	}
 
 	req.Project, req.RunTarget = resolveProjectTarget(command, req.Cwd, req.Target, req.Language)
+	if req.Package != "" {
+		req.RunTarget = req.Package
+	}
 
 	return req, nil
 }

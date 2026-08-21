@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
 )
 
@@ -36,10 +35,7 @@ func ExecuteBuild(req *Request) error {
 		args = append(args, "-ldflags", cfg.LDFlags)
 		args = append(args, "-o", output)
 		args = append(args, cfg.Extra...)
-
-		if !hasBuildTarget(cfg.Extra) {
-			args = append(args, main)
-		}
+		args = append(args, main)
 
 		start := time.Now()
 
@@ -100,31 +96,4 @@ func ExecuteBuild(req *Request) error {
 	}
 
 	return fmt.Errorf("%s is not a recognized project", req.Project)
-}
-
-func hasBuildTarget(args []string) bool {
-	takesValue := map[string]bool{
-		"-C": true, "-asmflags": true, "-buildmode": true, "-compiler": true,
-		"-covermode": true, "-coverpkg": true, "-gccgoflags": true,
-		"-gcflags": true, "-installsuffix": true,
-		"-ldflags": true, "-mod": true, "-modfile": true, "-overlay": true,
-		"-p": true, "-pgo": true, "-pkgdir": true, "-tags": true,
-		"-toolexec": true, "-o": true,
-	}
-
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-
-		if takesValue[arg] {
-			i++
-
-			continue
-		}
-
-		if !strings.HasPrefix(arg, "-") {
-			return true
-		}
-	}
-
-	return false
 }

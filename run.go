@@ -37,8 +37,8 @@ func ExecuteRun(req *Request) error {
 		args := []string{"run"}
 
 		args = append(args, resolveTagArgs(cfg.BuildFlags)...)
-		args = append(args, cfg.Extra...)
 		args = append(args, main)
+		args = append(args, cfg.Extra...)
 
 		return RunProcess(req.Project, cfg.Env, "go", args...)
 	case "js":

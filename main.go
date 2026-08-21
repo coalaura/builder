@@ -48,7 +48,7 @@ func NewSubcommand(name, usage string, languages []string, allowOS bool) *cli.Co
 	return &cli.Command{
 		Name:            name,
 		Usage:           usage,
-		ArgsUsage:       "[language] [os] [--pure] [--compat] [--opt] [--min] [target] [-- go arguments...]",
+		ArgsUsage:       "[language] [os] [--pure] [--compat] [--opt] [--min] [--package path] [target] [-- arguments...]",
 		SkipFlagParsing: true,
 		Action: func(_ context.Context, cmd *cli.Command) error {
 			args := cmd.Args().Slice()
