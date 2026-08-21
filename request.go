@@ -9,18 +9,19 @@ import (
 )
 
 type Request struct {
-	Command   string
-	Language  string
-	TargetOS  string
-	Target    string
-	Package   string
-	Pure      bool
-	Compat    bool
-	Minify    bool
-	Forward   []string
-	Cwd       string
-	Project   string
-	RunTarget string
+	Command    string
+	Language   string
+	TargetOS   string
+	Target     string
+	Package    string
+	Pure       bool
+	Dynamic    bool
+	Compatible bool
+	Minify     bool
+	Forward    []string
+	Cwd        string
+	Project    string
+	RunTarget  string
 }
 
 func parseRequest(command string, args, languages []string, allowOS bool) (*Request, error) {
@@ -51,9 +52,9 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 
 		lower := strings.ToLower(arg)
 
-		if lower == "--package" {
+		if lower == "--package" || lower == "--pkg" {
 			if i+1 >= len(args) || args[i+1] == "--" {
-				return nil, fmt.Errorf("--package requires a value")
+				return nil, fmt.Errorf("%s requires a value", lower)
 			}
 
 			i++
@@ -62,10 +63,10 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 			continue
 		}
 
-		if strings.HasPrefix(lower, "--package=") {
-			req.Package = arg[len("--package="):]
+		if strings.HasPrefix(lower, "--package=") || strings.HasPrefix(lower, "--pkg=") {
+			_, req.Package, _ = strings.Cut(arg, "=")
 			if req.Package == "" {
-				return nil, fmt.Errorf("--package requires a value")
+				return nil, fmt.Errorf("%s requires a value", strings.SplitN(lower, "=", 2)[0])
 			}
 
 			continue
@@ -74,11 +75,13 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 		switch lower {
 		case "--pure":
 			req.Pure = true
-		case "--compat":
-			req.Compat = true
-		case "--opt":
+		case "--dyn", "--dynamic":
+			req.Dynamic = true
+		case "--compat", "--compatible":
+			req.Compatible = true
+		case "--opt", "--optimize":
 			// Optimized builds are the default; this is the explicit spelling.
-		case "--min":
+		case "--min", "--minify":
 			req.Minify = true
 		case "win", "windows", "lin", "linux", "dar", "darwin":
 			if !allowOS {
@@ -95,6 +98,10 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 				return nil, fmt.Errorf("unknown argument for %s: %s", command, arg)
 			}
 		}
+	}
+
+	if req.Pure && req.Dynamic {
+		return nil, fmt.Errorf("--pure and --dynamic cannot be used together")
 	}
 
 	var err error

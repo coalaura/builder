@@ -65,7 +65,7 @@ func PrepareGo(req *Request) GoConfig {
 	}
 
 	if runtime.GOARCH == "amd64" {
-		if req.Compat {
+		if req.Compatible {
 			env["GOAMD64"] = "v1"
 		} else {
 			env["GOAMD64"] = "v3"
@@ -80,9 +80,13 @@ func PrepareGo(req *Request) GoConfig {
 
 	if req.Pure {
 		mode = "pure"
+	} else if req.Dynamic {
+		mode += ",dyn"
+	} else if req.TargetOS == "linux" || req.TargetOS == "windows" {
+		mode += ",static"
 	}
 
-	if req.Compat {
+	if req.Compatible {
 		mode += ",compat"
 	} else {
 		mode += ",opt"
@@ -93,7 +97,7 @@ func PrepareGo(req *Request) GoConfig {
 	}
 
 	if !req.Pure {
-		if req.TargetOS == "linux" || req.TargetOS == "windows" {
+		if !req.Dynamic && (req.TargetOS == "linux" || req.TargetOS == "windows") {
 			ldflags += " -linkmode external -extldflags=-static"
 		}
 
@@ -112,7 +116,7 @@ func PrepareGo(req *Request) GoConfig {
 		if runtime.GOARCH == "amd64" {
 			archFlag = "-march=x86_64_v3"
 
-			if req.Compat {
+			if req.Compatible {
 				archFlag = "-march=x86_64"
 			}
 
