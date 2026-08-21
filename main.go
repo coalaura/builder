@@ -8,6 +8,8 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
+var Version = "dev"
+
 func main() {
 	err := NewCLI().Run(context.Background(), os.Args)
 	if err == nil {
@@ -30,7 +32,7 @@ func main() {
 func NewCLI() *cli.Command {
 	return &cli.Command{
 		Name:           "builder",
-		Usage:          "build, run, test, and benchmark projects",
+		Usage:          "build, run, test and benchmark projects",
 		ExitErrHandler: func(context.Context, *cli.Command, error) {},
 		Commands: []*cli.Command{
 			NewSubcommand("build", "build a project", []string{"go", "js"}, true),
