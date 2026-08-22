@@ -104,11 +104,11 @@ func runGoTest(dir string, env map[string]string, args []string) error {
 		return err
 	}
 
-	ran, passed, failed, scanErr := formatTestEvents(stdout)
+	ran, passed, failed, scanErr := formatTestEvents(stdout, os.Stdout)
 
 	err = cmd.Wait()
 
-	fmt.Printf("tests: %d ran, %d passed, %d failed\n", ran, passed, failed)
+	fmt.Printf("\033[36m::\033[0m tests: \033[36m%d ran\033[0m, \033[32m%d passed\033[0m, \033[31m%d failed\033[0m\n", ran, passed, failed)
 
 	if scanErr != nil {
 		return scanErr
@@ -125,7 +125,7 @@ func runGoTest(dir string, env map[string]string, args []string) error {
 	return err
 }
 
-func formatTestEvents(reader io.Reader) (int, int, int, error) {
+func formatTestEvents(reader io.Reader, writer io.Writer) (int, int, int, error) {
 	var (
 		ran    int
 		passed int
@@ -143,7 +143,7 @@ func formatTestEvents(reader io.Reader) (int, int, int, error) {
 
 		err := json.Unmarshal(line, &event)
 		if err != nil {
-			fmt.Println(string(line))
+			fmt.Fprintln(writer, string(line))
 
 			continue
 		}
@@ -154,25 +154,29 @@ func formatTestEvents(reader io.Reader) (int, int, int, error) {
 		case event.Test != "" && event.Action == "run":
 			ran++
 
-			Subf("run:  %s", event.Test)
+			fmt.Fprintf(writer, "   \033[90m-> run: \033[0m \033[36m%s\033[0m\n", event.Test)
 		case event.Test != "" && event.Action == "pass":
 			passed++
 
-			Subf("pass: %s %s", event.Test, elapsed)
+			fmt.Fprintf(writer, "   \033[32m-> pass:\033[0m \033[36m%s\033[0m \033[90m%s\033[0m\n", event.Test, elapsed)
 		case event.Test != "" && event.Action == "fail":
 			failed++
 
-			Subf("fail: %s %s", event.Test, elapsed)
+			fmt.Fprintf(writer, "   \033[31m-> fail:\033[0m \033[31;1m%s\033[0m \033[90m%s\033[0m\n", event.Test, elapsed)
 		case event.Test != "" && event.Action == "skip":
-			Subf("skip: %s %s", event.Test, elapsed)
+			fmt.Fprintf(writer, "   \033[33m-> skip:\033[0m \033[36m%s\033[0m \033[90m%s\033[0m\n", event.Test, elapsed)
+		case event.Test != "" && event.Action == "pause":
+			fmt.Fprintf(writer, "   \033[90m-> pause:\033[0m \033[36m%s\033[0m\n", event.Test)
+		case event.Test != "" && event.Action == "cont":
+			fmt.Fprintf(writer, "   \033[90m-> cont: \033[0m \033[36m%s\033[0m\n", event.Test)
 		case event.Test == "" && event.Action == "pass":
-			fmt.Printf("ok     %s %s\n", event.Package, elapsed)
+			fmt.Fprintf(writer, "\033[32m::\033[0m \033[32mok\033[0m     %s \033[90m%s\033[0m\n", event.Package, elapsed)
 		case event.Test == "" && event.Action == "fail":
-			fmt.Printf("FAIL   %s %s\n", event.Package, elapsed)
+			fmt.Fprintf(writer, "\033[31m!!\033[0m \033[31;1mFAIL\033[0m   %s \033[90m%s\033[0m\n", event.Package, elapsed)
 		case event.Test == "" && event.Action == "skip":
-			fmt.Printf("?      %s [no test files]\n", event.Package)
+			fmt.Fprintf(writer, "\033[33m::\033[0m \033[33m?\033[0m      %s \033[90m[no test files]\033[0m\n", event.Package)
 		case event.Action == "output" && !isGeneratedTestLine(event.Output):
-			fmt.Print(event.Output)
+			fmt.Fprint(writer, event.Output)
 		}
 	}
 
