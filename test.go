@@ -104,11 +104,17 @@ func runGoTest(dir string, env map[string]string, args []string) error {
 		return err
 	}
 
-	ran, passed, failed, scanErr := formatTestEvents(stdout, os.Stdout)
+	ran, passed, failed, skipped, scanErr := formatTestEvents(stdout, os.Stdout)
 
 	err = cmd.Wait()
 
-	fmt.Printf("\033[36m::\033[0m tests: \033[36m%d ran\033[0m, \033[32m%d passed\033[0m, \033[31m%d failed\033[0m\n", ran, passed, failed)
+	fmt.Printf("\033[36m::\033[0m tests: \033[36m%d ran\033[0m, \033[32m%d passed\033[0m, \033[31m%d failed\033[0m", ran, passed, failed)
+
+	if skipped > 0 {
+		fmt.Printf(", \033[33m%d skipped\033[0m", skipped)
+	}
+
+	fmt.Println()
 
 	if scanErr != nil {
 		return scanErr
@@ -125,11 +131,12 @@ func runGoTest(dir string, env map[string]string, args []string) error {
 	return err
 }
 
-func formatTestEvents(reader io.Reader, writer io.Writer) (int, int, int, error) {
+func formatTestEvents(reader io.Reader, writer io.Writer) (int, int, int, int, error) {
 	var (
-		ran    int
-		passed int
-		failed int
+		ran     int
+		passed  int
+		failed  int
+		skipped int
 	)
 
 	scanner := bufio.NewScanner(reader)
@@ -164,6 +171,8 @@ func formatTestEvents(reader io.Reader, writer io.Writer) (int, int, int, error)
 
 			fmt.Fprintf(writer, "   \033[31m-> fail:\033[0m \033[31;1m%s\033[0m \033[90m%s\033[0m\n", event.Test, elapsed)
 		case event.Test != "" && event.Action == "skip":
+			skipped++
+
 			fmt.Fprintf(writer, "   \033[33m-> skip:\033[0m \033[36m%s\033[0m \033[90m%s\033[0m\n", event.Test, elapsed)
 		case event.Test != "" && event.Action == "pause":
 			fmt.Fprintf(writer, "   \033[90m-> pause:\033[0m \033[36m%s\033[0m\n", event.Test)
@@ -180,7 +189,7 @@ func formatTestEvents(reader io.Reader, writer io.Writer) (int, int, int, error)
 		}
 	}
 
-	return ran, passed, failed, scanner.Err()
+	return ran, passed, failed, skipped, scanner.Err()
 }
 
 func isGeneratedTestLine(output string) bool {
