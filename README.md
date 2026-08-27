@@ -25,6 +25,7 @@ Builder attempts to detect the project language when omitted.
 - `--dyn`, `--dynamic`: dynamically link CGO builds
 - `--compat`, `--compatible`: favor CPU compatibility
 - `--min`, `--minify`: minimize and compress builds
+- `--gui`: use the Windows GUI subsystem for Go builds and runs
 - `--package`, `--pkg`: select a Go package
 
 ```sh

@@ -18,6 +18,7 @@ type Request struct {
 	Dynamic    bool
 	Compatible bool
 	Minify     bool
+	GUI        bool
 	Forward    []string
 	Cwd        string
 	Project    string
@@ -83,6 +84,12 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 			// Optimized builds are the default; this is the explicit spelling.
 		case "--min", "--minify":
 			req.Minify = true
+		case "--gui":
+			if command != "build" && command != "run" {
+				return nil, fmt.Errorf("unknown argument for %s: %s", command, arg)
+			}
+
+			req.GUI = true
 		case "win", "windows", "lin", "linux", "dar", "darwin":
 			if !allowOS {
 				return nil, fmt.Errorf("unknown argument for %s: %s", command, arg)

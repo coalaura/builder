@@ -45,10 +45,15 @@ func NewCLI() *cli.Command {
 }
 
 func NewSubcommand(name, usage string, languages []string, allowOS bool) *cli.Command {
+	argsUsage := "[language] [os] [--pure] [--dyn] [--compat] [--opt] [--min] [--pkg path] [target] [-- arguments...]"
+	if name == "build" || name == "run" {
+		argsUsage = "[language] [os] [--pure] [--dyn] [--compat] [--opt] [--min] [--gui] [--pkg path] [target] [-- arguments...]"
+	}
+
 	return &cli.Command{
 		Name:            name,
 		Usage:           usage,
-		ArgsUsage:       "[language] [os] [--pure] [--dyn] [--compat] [--opt] [--min] [--pkg path] [target] [-- arguments...]",
+		ArgsUsage:       argsUsage,
 		SkipFlagParsing: true,
 		Action: func(_ context.Context, cmd *cli.Command) error {
 			args := cmd.Args().Slice()

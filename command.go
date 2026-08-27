@@ -70,6 +70,16 @@ func resolveTagArgs(buildFlags []string) []string {
 	return nil
 }
 
+func resolveRunBuildArgs(req *Request, cfg GoConfig) []string {
+	args := resolveTagArgs(cfg.BuildFlags)
+
+	if req.GUI && req.TargetOS == "windows" {
+		args = append(args, "-ldflags", "-H windowsgui")
+	}
+
+	return args
+}
+
 func printDuration(start time.Time, action string) {
 	elapsed := time.Since(start)
 

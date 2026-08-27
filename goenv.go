@@ -46,6 +46,9 @@ func PrepareGo(req *Request) GoConfig {
 	buildFlags := []string{"-trimpath", "-buildvcs=false"}
 
 	ldflags := "-s -w"
+	if req.GUI && req.TargetOS == "windows" {
+		ldflags += " -H windowsgui"
+	}
 
 	if req.Pure {
 		env["CGO_ENABLED"] = "0"
