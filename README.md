@@ -1,6 +1,6 @@
 # builder
 
-A small CLI for building, running, testing and benchmarking Go and JavaScript projects.
+A small (opinionated) CLI for building, running, testing and benchmarking Go and JavaScript projects.
 
 ## Install
 
