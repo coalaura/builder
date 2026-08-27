@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strings"
 
 	"github.com/urfave/cli/v3"
 )
@@ -45,10 +46,24 @@ func NewCLI() *cli.Command {
 }
 
 func NewSubcommand(name, usage string, languages []string, allowOS bool) *cli.Command {
-	argsUsage := "[language] [os] [--pure] [--dyn] [--compat] [--opt] [--min] [--pkg path] [target] [-- arguments...]"
-	if name == "build" || name == "run" {
-		argsUsage = "[language] [os] [--pure] [--dyn] [--compat] [--opt] [--min] [--gui] [--pkg path] [target] [-- arguments...]"
+	parts := []string{"[language]"}
+	if allowOS {
+		parts = append(parts, "[os]")
 	}
+
+	parts = append(parts, "[--pure]", "[--dyn]", "[--compat]", "[--opt]", "[--min]", "[--no-generate]", "[--debug]")
+
+	if name == "build" {
+		parts = append(parts, "[--output name]")
+	}
+
+	if name == "build" || name == "run" {
+		parts = append(parts, "[--gui]")
+	}
+
+	parts = append(parts, "[--pkg path]", "[target]", "[-- arguments...]")
+
+	argsUsage := strings.Join(parts, " ")
 
 	return &cli.Command{
 		Name:            name,

@@ -13,21 +13,27 @@ func ExecuteBuild(req *Request) error {
 	case "go":
 		main := req.RunTarget
 		if main == "" {
-			main = findGoMain(req.Project)
+			main = findGoMain(req.Project, req.Debug)
 		}
 
-		err := GenerateGo(req.Project)
+		err := GenerateGo(req)
 		if err != nil {
 			return err
 		}
 
 		cfg := PrepareGo(req)
 
-		name := getOutputName(req.Project, req.TargetOS == "windows")
+		name := req.Output
+		if name == "" {
+			name = getOutputName(req.Project, req.TargetOS == "windows")
+		}
 
-		output := filepath.Join(req.Cwd, name)
+		output := name
+		if !filepath.IsAbs(output) {
+			output = filepath.Join(req.Cwd, output)
+		}
 
-		Infof("[go/%s/%s] building %s (mode: %s)", req.TargetOS, name, main, cfg.Mode)
+		Infof("[go/%s/%s] building %s (mode: %s)", req.TargetOS, filepath.Base(output), main, cfg.Mode)
 
 		args := []string{"build"}
 
@@ -39,31 +45,37 @@ func ExecuteBuild(req *Request) error {
 
 		start := time.Now()
 
-		err = RunProcess(req.Project, cfg.Env, "go", args...)
+		err = RunProcess(req.Debug, req.Project, cfg.Env, "go", args...)
 		if err != nil {
 			return err
 		}
 
-		printDuration(start, "built")
+		if !req.Debug {
+			printDuration(start, "built")
+		}
 
 		if req.Minify {
-			_, err = exec.LookPath("upx")
-			if err != nil {
-				Infof("upx not found, skipping compression")
+			if !req.Debug {
+				_, err = exec.LookPath("upx")
+				if err != nil {
+					Infof("upx not found, skipping compression")
 
-				return nil
+					return nil
+				}
 			}
 
-			Infof("[upx] compressing %s", name)
+			Infof("[upx] compressing %s", filepath.Base(output))
 
 			start = time.Now()
 
-			err = RunProcess(req.Cwd, nil, "upx", "--best", "--lzma", output)
+			err = RunProcess(req.Debug, req.Cwd, nil, "upx", "--best", "--lzma", output)
 			if err != nil {
 				return err
 			}
 
-			printDuration(start, "compressed")
+			if !req.Debug {
+				printDuration(start, "compressed")
+			}
 		}
 
 		return nil
@@ -85,12 +97,14 @@ func ExecuteBuild(req *Request) error {
 
 		args = append(args, req.Forward...)
 
-		err := RunProcess(req.Project, nil, "bun", args...)
+		err := RunProcess(req.Debug, req.Project, nil, "bun", args...)
 		if err != nil {
 			return err
 		}
 
-		printDuration(start, "built")
+		if !req.Debug {
+			printDuration(start, "built")
+		}
 
 		return nil
 	}

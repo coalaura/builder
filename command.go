@@ -35,27 +35,36 @@ func ExecuteScript(req *Request) error {
 	if runtime.GOOS == "windows" {
 		args := append([]string{"/d", "/c", "call", path}, req.Forward...)
 
-		return RunProcess(req.Project, nil, "cmd.exe", args...)
+		return RunProcess(req.Debug, req.Project, nil, "cmd.exe", args...)
 	}
 
-	if info, err := os.Stat(path); err == nil {
-		os.Chmod(path, info.Mode()|0o100)
+	if !req.Debug {
+		info, err := os.Stat(path)
+		if err == nil {
+			os.Chmod(path, info.Mode()|0o100)
+		}
 	}
 
-	return RunProcess(req.Project, nil, path, req.Forward...)
+	return RunProcess(req.Debug, req.Project, nil, path, req.Forward...)
 }
 
-func GenerateGo(project string) error {
-	Infof("[go] generating %s", project)
+func GenerateGo(req *Request) error {
+	if req.NoGenerate {
+		return nil
+	}
+
+	Infof("[go] generating %s", req.Project)
 
 	start := time.Now()
 
-	err := RunProcess(project, nil, "go", "generate", "./...")
+	err := RunProcess(req.Debug, req.Project, nil, "go", "generate", "./...")
 	if err != nil {
 		return err
 	}
 
-	printDuration(start, "generated")
+	if !req.Debug {
+		printDuration(start, "generated")
+	}
 
 	return nil
 }

@@ -14,11 +14,14 @@ type Request struct {
 	TargetOS   string
 	Target     string
 	Package    string
+	Output     string
 	Pure       bool
 	Dynamic    bool
 	Compatible bool
 	Minify     bool
 	GUI        bool
+	NoGenerate bool
+	Debug      bool
 	Forward    []string
 	Cwd        string
 	Project    string
@@ -64,6 +67,21 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 			continue
 		}
 
+		if lower == "--output" {
+			if command != "build" {
+				return nil, fmt.Errorf("unknown argument for %s: %s", command, arg)
+			}
+
+			if i+1 >= len(args) || args[i+1] == "--" {
+				return nil, fmt.Errorf("%s requires a value", lower)
+			}
+
+			i++
+			req.Output = args[i]
+
+			continue
+		}
+
 		if strings.HasPrefix(lower, "--package=") || strings.HasPrefix(lower, "--pkg=") {
 			_, req.Package, _ = strings.Cut(arg, "=")
 			if req.Package == "" {
@@ -73,9 +91,26 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 			continue
 		}
 
+		if strings.HasPrefix(lower, "--output=") {
+			if command != "build" {
+				return nil, fmt.Errorf("unknown argument for %s: %s", command, arg)
+			}
+
+			_, req.Output, _ = strings.Cut(arg, "=")
+			if req.Output == "" {
+				return nil, fmt.Errorf("--output requires a value")
+			}
+
+			continue
+		}
+
 		switch lower {
 		case "--pure":
 			req.Pure = true
+		case "--no-generate":
+			req.NoGenerate = true
+		case "--debug":
+			req.Debug = true
 		case "--dyn", "--dynamic":
 			req.Dynamic = true
 		case "--compat", "--compatible":
@@ -135,6 +170,10 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 	req.Project, req.RunTarget = resolveProjectTarget(command, req.Cwd, req.Target, req.Language)
 	if req.Package != "" {
 		req.RunTarget = req.Package
+	}
+
+	if req.Output != "" && req.Language != "go" {
+		return nil, fmt.Errorf("--output is only supported for go builds")
 	}
 
 	return req, nil

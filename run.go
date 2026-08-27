@@ -18,14 +18,14 @@ func ExecuteRun(req *Request) error {
 
 		args = append(args, req.Forward...)
 
-		return RunProcess(req.Project, nil, "php", args...)
+		return RunProcess(req.Debug, req.Project, nil, "php", args...)
 	case "go":
 		main := req.RunTarget
 		if main == "" {
-			main = findGoMain(req.Project)
+			main = findGoMain(req.Project, req.Debug)
 		}
 
-		err := GenerateGo(req.Project)
+		err := GenerateGo(req)
 		if err != nil {
 			return err
 		}
@@ -40,7 +40,7 @@ func ExecuteRun(req *Request) error {
 		args = append(args, main)
 		args = append(args, cfg.Extra...)
 
-		return RunProcess(req.Project, cfg.Env, "go", args...)
+		return RunProcess(req.Debug, req.Project, cfg.Env, "go", args...)
 	case "js":
 		if req.RunTarget != "" && doesFileExists(req.RunTarget) {
 			Infof("[bun] running %s", req.RunTarget)
@@ -49,7 +49,7 @@ func ExecuteRun(req *Request) error {
 
 			args = append(args, req.Forward...)
 
-			return RunProcess(req.Project, nil, "bun", args...)
+			return RunProcess(req.Debug, req.Project, nil, "bun", args...)
 		}
 
 		script := findPackageJsonScript(req.Project, []string{"dev", "watch", "start", "test"})
@@ -60,7 +60,7 @@ func ExecuteRun(req *Request) error {
 
 			args = append(args, req.Forward...)
 
-			return RunProcess(req.Project, nil, "bun", args...)
+			return RunProcess(req.Debug, req.Project, nil, "bun", args...)
 		}
 
 		file := findFirstExistingFile(req.Project, []string{"index.js", "main.js", "app.js"})
@@ -71,7 +71,7 @@ func ExecuteRun(req *Request) error {
 
 			args = append(args, req.Forward...)
 
-			return RunProcess(req.Project, nil, "bun", args...)
+			return RunProcess(req.Debug, req.Project, nil, "bun", args...)
 		}
 
 		return fmt.Errorf("%s is not a recognized js project", req.Project)

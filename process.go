@@ -5,10 +5,17 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 )
 
-func RunProcess(dir string, env map[string]string, name string, args ...string) error {
+func RunProcess(debug bool, dir string, env map[string]string, name string, args ...string) error {
+	if debug {
+		Infof("[debug] %s", formatCommand(name, args))
+
+		return nil
+	}
+
 	cmd := exec.Command(name, args...)
 
 	cmd.Dir = dir
@@ -27,6 +34,26 @@ func RunProcess(dir string, env map[string]string, name string, args ...string) 
 	}
 
 	return err
+}
+
+func formatCommand(name string, args []string) string {
+	parts := make([]string, 0, len(args)+1)
+
+	parts = append(parts, quoteCommandArg(name))
+
+	for _, arg := range args {
+		parts = append(parts, quoteCommandArg(arg))
+	}
+
+	return strings.Join(parts, " ")
+}
+
+func quoteCommandArg(value string) string {
+	if value != "" && !strings.ContainsAny(value, " \t\r\n\"") {
+		return value
+	}
+
+	return strconv.Quote(value)
 }
 
 func mergeEnvironment(overrides map[string]string) []string {

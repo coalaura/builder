@@ -23,7 +23,7 @@ type TestEvent struct {
 func ExecuteTest(req *Request) error {
 	switch req.Language {
 	case "go":
-		err := GenerateGo(req.Project)
+		err := GenerateGo(req)
 		if err != nil {
 			return err
 		}
@@ -43,7 +43,7 @@ func ExecuteTest(req *Request) error {
 		args = append(args, target)
 		args = append(args, cfg.Extra...)
 
-		return runGoTest(req.Project, cfg.Env, args)
+		return runGoTest(req.Debug, req.Project, cfg.Env, args)
 	case "js":
 		if req.RunTarget != "" && doesFileExists(req.RunTarget) {
 			Infof("[bun test] testing %s", req.RunTarget)
@@ -52,7 +52,7 @@ func ExecuteTest(req *Request) error {
 
 			args = append(args, req.Forward...)
 
-			return RunProcess(req.Project, nil, "bun", args...)
+			return RunProcess(req.Debug, req.Project, nil, "bun", args...)
 		}
 
 		script := findPackageJsonScript(req.Project, []string{"test"})
@@ -63,7 +63,7 @@ func ExecuteTest(req *Request) error {
 
 			args = append(args, req.Forward...)
 
-			return RunProcess(req.Project, nil, "bun", args...)
+			return RunProcess(req.Debug, req.Project, nil, "bun", args...)
 		}
 
 		matches, _ := filepath.Glob(filepath.Join(req.Project, "*.test.*"))
@@ -76,7 +76,7 @@ func ExecuteTest(req *Request) error {
 
 			args = append(args, req.Forward...)
 
-			return RunProcess(req.Project, nil, "bun", args...)
+			return RunProcess(req.Debug, req.Project, nil, "bun", args...)
 		}
 
 		return fmt.Errorf("%s is not a recognized js test project", req.Project)
@@ -85,7 +85,13 @@ func ExecuteTest(req *Request) error {
 	return fmt.Errorf("%s is not a recognized test project", req.Project)
 }
 
-func runGoTest(dir string, env map[string]string, args []string) error {
+func runGoTest(debug bool, dir string, env map[string]string, args []string) error {
+	if debug {
+		Infof("[debug] %s", formatCommand("go", args))
+
+		return nil
+	}
+
 	cmd := exec.Command("go", args...)
 
 	cmd.Dir = dir

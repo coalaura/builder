@@ -39,8 +39,14 @@ func findPackageJsonScript(project string, allowed []string) string {
 	return ""
 }
 
-func findGoMain(project string) string {
+func findGoMain(project string, debug bool) string {
 	if doesDirectoryHaveGoMain(project) {
+		return project
+	}
+
+	if debug {
+		Infof("[debug] %s", formatCommand("go", []string{"list", "-f", "{{.Name}}|{{.Dir}}", "./..."}))
+
 		return project
 	}
 
