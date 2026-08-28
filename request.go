@@ -15,7 +15,7 @@ type Request struct {
 	Target     string
 	Package    string
 	Output     string
-	Pure       bool
+	CGO        bool
 	Dynamic    bool
 	Compatible bool
 	Minify     bool
@@ -37,7 +37,19 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 		allowed[language] = true
 	}
 
-	var forwarding bool
+	var (
+		forwarding          bool
+		cgoRequested        bool
+		pureRequested       bool
+		dynamicRequested    bool
+		staticRequested     bool
+		compatibleRequested bool
+		optimizeRequested   bool
+		minifyRequested     bool
+		noMinifyRequested   bool
+		generateRequested   bool
+		noGenerateRequested bool
+	)
 
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
@@ -67,7 +79,7 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 			continue
 		}
 
-		if lower == "--output" {
+		if lower == "--output" || lower == "--out" {
 			if command != "build" {
 				return nil, fmt.Errorf("unknown argument for %s: %s", command, arg)
 			}
@@ -91,34 +103,52 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 			continue
 		}
 
-		if strings.HasPrefix(lower, "--output=") {
+		if strings.HasPrefix(lower, "--output=") || strings.HasPrefix(lower, "--out=") {
 			if command != "build" {
 				return nil, fmt.Errorf("unknown argument for %s: %s", command, arg)
 			}
 
 			_, req.Output, _ = strings.Cut(arg, "=")
 			if req.Output == "" {
-				return nil, fmt.Errorf("--output requires a value")
+				return nil, fmt.Errorf("%s requires a value", strings.SplitN(lower, "=", 2)[0])
 			}
 
 			continue
 		}
 
 		switch lower {
+		case "--cgo":
+			cgoRequested = true
+			req.CGO = true
 		case "--pure":
-			req.Pure = true
-		case "--no-generate":
+			pureRequested = true
+			req.CGO = false
+		case "--no-gen", "--no-generate":
+			noGenerateRequested = true
 			req.NoGenerate = true
+		case "--gen", "--generate":
+			generateRequested = true
+			req.NoGenerate = false
 		case "--debug":
 			req.Debug = true
 		case "--dyn", "--dynamic":
+			dynamicRequested = true
 			req.Dynamic = true
+		case "--stat", "--static":
+			staticRequested = true
+			req.Dynamic = false
 		case "--compat", "--compatible":
+			compatibleRequested = true
 			req.Compatible = true
 		case "--opt", "--optimize":
-			// Optimized builds are the default; this is the explicit spelling.
+			optimizeRequested = true
+			req.Compatible = false
 		case "--min", "--minify":
+			minifyRequested = true
 			req.Minify = true
+		case "--no-min", "--no-minify":
+			noMinifyRequested = true
+			req.Minify = false
 		case "--gui":
 			if command != "build" && command != "run" {
 				return nil, fmt.Errorf("unknown argument for %s: %s", command, arg)
@@ -142,8 +172,19 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 		}
 	}
 
-	if req.Pure && req.Dynamic {
-		return nil, fmt.Errorf("--pure and --dynamic cannot be used together")
+	switch {
+	case cgoRequested && pureRequested:
+		return nil, fmt.Errorf("--cgo and --pure cannot be used together")
+	case dynamicRequested && staticRequested:
+		return nil, fmt.Errorf("--dynamic and --static cannot be used together")
+	case compatibleRequested && optimizeRequested:
+		return nil, fmt.Errorf("--compatible and --optimize cannot be used together")
+	case minifyRequested && noMinifyRequested:
+		return nil, fmt.Errorf("--minify and --no-minify cannot be used together")
+	case generateRequested && noGenerateRequested:
+		return nil, fmt.Errorf("--generate and --no-generate cannot be used together")
+	case !req.CGO && req.Dynamic:
+		return nil, fmt.Errorf("--dynamic requires --cgo")
 	}
 
 	var err error

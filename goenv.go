@@ -10,7 +10,7 @@ import (
 
 func prepareGo(req *Request) goenv.Config {
 	return goenv.Prepare(goenv.Options{
-		CGO:         !req.Pure,
+		CGO:         req.CGO,
 		OS:          req.TargetOS,
 		Arch:        runtime.GOARCH,
 		GUI:         req.GUI,

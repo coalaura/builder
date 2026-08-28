@@ -35,21 +35,35 @@ builder bench [language] [options] [target] [-- arguments...]
 
 Builder attempts to detect the project language when omitted. Only `build` accepts an operating system target.
 
-### Options
+### Build modes
 
-- `--pure`: disable CGO
+- `--cgo`: enable CGO
+- `--pure`: disable CGO (the default)
 - `--dyn`, `--dynamic`: dynamically link CGO builds
-- `--compat`, `--compatible`: favor CPU compatibility
-- `--opt`, `--optimize`: explicitly select the default optimized build mode
+- `--stat`, `--static`: statically link CGO builds (the default)
+- `--compat`, `--compatible`: favor CPU compatibility and disable optimized mode
+- `--opt`, `--optimize`: favor optimization and disable compatibility mode (the default)
 - `--min`, `--minify`: minimize and compress builds
+- `--no-min`, `--no-minify`: disable minification
+
+Opposing build modes are mutually exclusive. Combining `--cgo` with `--pure`, `--dyn` with `--stat`, `--compat` with `--opt` or `--min` with `--no-min` is an error.
+
+### Project options
+
 - `--gui`: use the Windows GUI subsystem for Go builds and runs
-- `--package`, `--pkg`: select a Go package
-- `--no-generate`: skip the default `go generate ./...` step
-- `--output`: override the Go build output name or path
+- `--pkg`, `--package`: select a Go package
+- `--gen`, `--generate`: explicitly run `go generate ./...` (the default)
+- `--no-gen`, `--no-generate`: skip `go generate ./...`
+- `--out`, `--output`: override the Go build output name or path
+
+The generation options are mutually exclusive.
+
+### Execution
+
 - `--debug`: print the commands that would run without executing them
 
 ```sh
-builder build go --dyn --pkg ./cmd/example
+builder build go --cgo --dyn --pkg ./cmd/example
 builder build go windows --output example.exe
 builder run go --pkg ./cmd/example -- banner.png
 builder test go --no-generate --debug

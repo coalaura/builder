@@ -47,14 +47,23 @@ func NewCLI() *cli.Command {
 
 func NewSubcommand(name, usage string, languages []string, allowOS bool) *cli.Command {
 	parts := []string{"[language]"}
+
 	if allowOS {
 		parts = append(parts, "[os]")
 	}
 
-	parts = append(parts, "[--pure]", "[--dyn]", "[--compat]", "[--opt]", "[--min]", "[--no-generate]", "[--debug]")
+	parts = append(
+		parts,
+		"[--cgo]", "[--pure]",
+		"[--dyn]", "[--stat]",
+		"[--compat]", "[--opt]",
+		"[--min]", "[--no-min]",
+		"[--gen]", "[--no-gen]",
+		"[--debug]",
+	)
 
 	if name == "build" {
-		parts = append(parts, "[--output name]")
+		parts = append(parts, "[--out name]")
 	}
 
 	if name == "build" || name == "run" {
