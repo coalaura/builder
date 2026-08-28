@@ -30,7 +30,7 @@ func ExecuteRun(req *Request) error {
 			return err
 		}
 
-		cfg := PrepareGo(req)
+		cfg := prepareGo(req)
 
 		Infof("[go] running %s (mode: %s)", main, cfg.Mode)
 
@@ -38,7 +38,7 @@ func ExecuteRun(req *Request) error {
 
 		args = append(args, resolveRunBuildArgs(req, cfg)...)
 		args = append(args, main)
-		args = append(args, cfg.Extra...)
+		args = append(args, req.Forward...)
 
 		return RunProcess(req.Debug, req.Project, cfg.Env, "go", args...)
 	case "js":

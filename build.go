@@ -21,7 +21,7 @@ func ExecuteBuild(req *Request) error {
 			return err
 		}
 
-		cfg := PrepareGo(req)
+		cfg := prepareGo(req)
 
 		name := req.Output
 		if name == "" {
@@ -40,7 +40,7 @@ func ExecuteBuild(req *Request) error {
 		args = append(args, cfg.BuildFlags...)
 		args = append(args, "-ldflags", cfg.LDFlags)
 		args = append(args, "-o", output)
-		args = append(args, cfg.Extra...)
+		args = append(args, req.Forward...)
 		args = append(args, main)
 
 		start := time.Now()

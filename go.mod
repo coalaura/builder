@@ -1,4 +1,4 @@
-module builder
+module github.com/coalaura/builder
 
 go 1.27.0
 

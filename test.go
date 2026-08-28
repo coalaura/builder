@@ -28,7 +28,7 @@ func ExecuteTest(req *Request) error {
 			return err
 		}
 
-		cfg := PrepareGo(req)
+		cfg := prepareGo(req)
 
 		target := req.RunTarget
 		if target == "" {
@@ -41,7 +41,7 @@ func ExecuteTest(req *Request) error {
 
 		args = append(args, resolveTagArgs(cfg.BuildFlags)...)
 		args = append(args, target)
-		args = append(args, cfg.Extra...)
+		args = append(args, req.Forward...)
 
 		return runGoTest(req.Debug, req.Project, cfg.Env, args)
 	case "js":

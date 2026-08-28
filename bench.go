@@ -10,7 +10,7 @@ func ExecuteBench(req *Request) error {
 			return err
 		}
 
-		cfg := PrepareGo(req)
+		cfg := prepareGo(req)
 
 		target := req.RunTarget
 		if target == "" {
@@ -23,7 +23,7 @@ func ExecuteBench(req *Request) error {
 
 		args = append(args, resolveTagArgs(cfg.BuildFlags)...)
 		args = append(args, target)
-		args = append(args, cfg.Extra...)
+		args = append(args, req.Forward...)
 
 		return RunProcess(req.Debug, req.Project, cfg.Env, "go", args...)
 	case "js":

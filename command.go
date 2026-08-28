@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"time"
+
+	"github.com/coalaura/builder/goenv"
 )
 
 func ExecuteRequest(req *Request) error {
@@ -79,7 +81,7 @@ func resolveTagArgs(buildFlags []string) []string {
 	return nil
 }
 
-func resolveRunBuildArgs(req *Request, cfg GoConfig) []string {
+func resolveRunBuildArgs(req *Request, cfg goenv.Config) []string {
 	args := resolveTagArgs(cfg.BuildFlags)
 
 	if req.GUI && req.TargetOS == "windows" {

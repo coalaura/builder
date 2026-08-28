@@ -2,6 +2,22 @@
 
 A small (opinionated) CLI for building, running, testing and benchmarking Go and JavaScript projects.
 
+The Go build environment is also available as an importable package:
+
+```go
+import "github.com/coalaura/builder/goenv"
+
+config := goenv.Prepare(goenv.Options{
+	CGO:      true,
+	OS:       "linux",
+	Arch:     "amd64",
+	Optimize: true,
+})
+
+// config.Env contains the complete overrides for the selected build.
+// Empty values remove inherited variables.
+```
+
 ## Install
 
 ```sh
