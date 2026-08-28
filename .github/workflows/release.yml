@@ -6,7 +6,7 @@ on:
       - 'v*'
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   project_name: builder
@@ -74,21 +74,226 @@ jobs:
         name: ${{ env.project_name }}_${{ matrix.goos }}_${{ matrix.goarch }}
         path: bin/*
 
-  release:
+  sign:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
+
     steps:
-    - name: Download Artifacts
+    - name: Download artifacts
       uses: actions/download-artifact@v8
       with:
         pattern: ${{ env.project_name }}_*
-        path: bin
+        path: dist
         merge-multiple: true
+
+    - name: Install signing tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y osslsigncode
+
+        openssl version
+        osslsigncode --version
+
+    - name: Download certificates
+      run: |
+        set -euo pipefail
+
+        mkdir -p pki
+
+        curl --fail --location --retry 5 --output pki/root.pem https://wiese2.org/pki/root.pem
+        curl --fail --location --retry 5 --output pki/issuing.pem https://wiese2.org/pki/issuing.pem
+        curl --fail --location --retry 5 --output pki/coalaura.pem https://wiese2.org/pki/coalaura.pem
+
+    - name: Verify certificate chain
+      run: |
+        set -euo pipefail
+
+        openssl verify \
+          -x509_strict \
+          -verify_name code_sign \
+          -show_chain \
+          -CAfile pki/root.pem \
+          -untrusted pki/issuing.pem \
+          pki/coalaura.pem
+
+    - name: Sign binaries
+      env:
+        COALAURA_PFX: ${{ secrets.COALAURA_PFX }}
+        COALAURA_PFX_PASSWORD: ${{ secrets.COALAURA_PFX_PASSWORD }}
+      run: |
+        set -euo pipefail
+
+        if [[ -z "$COALAURA_PFX" ]]; then
+          echo "COALAURA_PFX is not configured" >&2
+          exit 1
+        fi
+
+        if [[ -z "$COALAURA_PFX_PASSWORD" ]]; then
+          echo "COALAURA_PFX_PASSWORD is not configured" >&2
+          exit 1
+        fi
+
+        umask 077
+
+        SECRET_DIR="$RUNNER_TEMP/coalaura-signing"
+        PFX_PATH="$SECRET_DIR/coalaura.pfx"
+        PASSWORD_PATH="$SECRET_DIR/password"
+        PFX_CERT_PATH="$SECRET_DIR/coalaura.pem"
+        PFX_CERT_DER_PATH="$SECRET_DIR/coalaura.der"
+        PUBLIC_CERT_DER_PATH="$SECRET_DIR/public-coalaura.der"
+        PRIVATE_KEY_PATH="$SECRET_DIR/coalaura.key.pem"
+
+        mkdir -p "$SECRET_DIR"
+
+        cleanup() {
+          rm -rf "$SECRET_DIR"
+        }
+
+        trap cleanup EXIT
+
+        printf '%s' "$COALAURA_PFX" |
+          base64 --decode > "$PFX_PATH"
+
+        printf '%s\n' "$COALAURA_PFX_PASSWORD" > "$PASSWORD_PATH"
+
+        openssl pkcs12 \
+          -in "$PFX_PATH" \
+          -clcerts \
+          -nokeys \
+          -passin "file:$PASSWORD_PATH" \
+          -out "$PFX_CERT_PATH"
+
+        openssl x509 \
+          -in "$PFX_CERT_PATH" \
+          -outform DER \
+          -out "$PFX_CERT_DER_PATH"
+
+        openssl x509 \
+          -in pki/coalaura.pem \
+          -outform DER \
+          -out "$PUBLIC_CERT_DER_PATH"
+
+        if ! cmp --silent "$PFX_CERT_DER_PATH" "$PUBLIC_CERT_DER_PATH"; then
+          echo "COALAURA_PFX does not match the published coalaura certificate" >&2
+          exit 1
+        fi
+
+        for BINARY in dist/${{ env.project_name }}-windows-*.exe; do
+          SIGNED="${BINARY%.exe}.signed.exe"
+
+          echo "Signing $(basename "$BINARY")"
+
+          osslsigncode sign \
+            -pkcs12 "$PFX_PATH" \
+            -readpass "$PASSWORD_PATH" \
+            -ac pki/issuing.pem \
+            -h sha256 \
+            -ts http://timestamp.digicert.com \
+            -n "${{ env.project_name }}" \
+            -i "https://github.com/coalaura/${{ env.project_name }}" \
+            -in "$BINARY" \
+            -out "$SIGNED"
+
+          mv "$SIGNED" "$BINARY"
+        done
+
+        (
+          cd dist
+          sha256sum -b ${{ env.project_name }}-* > SHA256SUMS
+        )
+
+        openssl pkcs12 \
+          -in "$PFX_PATH" \
+          -nocerts \
+          -noenc \
+          -passin "file:$PASSWORD_PATH" \
+          -out "$PRIVATE_KEY_PATH"
+
+        openssl dgst \
+          -sha256 \
+          -sign "$PRIVATE_KEY_PATH" \
+          -out dist/SHA256SUMS.sig \
+          dist/SHA256SUMS
+
+    - name: Verify signed release
+      run: |
+        set -euo pipefail
+
+        openssl x509 \
+          -in pki/coalaura.pem \
+          -pubkey \
+          -noout \
+          > pki/coalaura.pub.pem
+
+        LEAF_HASH="$(
+          openssl x509 \
+            -in pki/coalaura.pem \
+            -outform DER |
+            sha256sum |
+            cut -d' ' -f1
+        )"
+
+        for BINARY in dist/${{ env.project_name }}-windows-*.exe; do
+          echo "Verifying $(basename "$BINARY")"
+
+          osslsigncode verify \
+            -CAfile pki/root.pem \
+            -TSA-CAfile /etc/ssl/certs/ca-certificates.crt \
+            -require-leaf-hash "sha256:$LEAF_HASH" \
+            -ignore-crl \
+            -in "$BINARY"
+        done
+
+        openssl dgst \
+          -sha256 \
+          -verify pki/coalaura.pub.pem \
+          -signature dist/SHA256SUMS.sig \
+          dist/SHA256SUMS
+
+        (
+          cd dist
+          sha256sum -c SHA256SUMS
+        )
+
+    - name: Upload signed release
+      uses: actions/upload-artifact@v6
+      with:
+        name: release
+        path: |
+          dist/${{ env.project_name }}-windows-*.exe
+          dist/${{ env.project_name }}-linux-*
+          dist/SHA256SUMS
+          dist/SHA256SUMS.sig
+        if-no-files-found: error
+        retention-days: 1
+
+  release:
+    needs: sign
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+
+    steps:
+    - name: Download signed release
+      uses: actions/download-artifact@v8
+      with:
+        name: release
+        path: dist
+
+    - name: Attest binaries
+      uses: actions/attest@v4
+      with:
+        subject-checksums: dist/SHA256SUMS
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        files: bin/*
+        files: dist/*
         name: "Release ${{ github.ref_name }}"
+        generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
