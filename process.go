@@ -29,7 +29,8 @@ func RunProcess(debug bool, dir string, env map[string]string, name string, args
 		return nil
 	}
 
-	if exit, ok := errors.AsType[*exec.ExitError](err); ok {
+	exit, ok := errors.AsType[*exec.ExitError](err)
+	if ok {
 		return &ExitError{code: exit.ExitCode()}
 	}
 

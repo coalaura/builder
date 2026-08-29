@@ -17,7 +17,8 @@ func main() {
 		return
 	}
 
-	if status, ok := errors.AsType[cli.ExitCoder](err); ok {
+	status, ok := errors.AsType[cli.ExitCoder](err)
+	if ok {
 		if status.Error() != "" {
 			Errorf("%s", status.Error())
 		}
