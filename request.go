@@ -9,23 +9,25 @@ import (
 )
 
 type Request struct {
-	Command    string
-	Language   string
-	TargetOS   string
-	Target     string
-	Package    string
-	Output     string
-	CGO        bool
-	Dynamic    bool
-	Compatible bool
-	Minify     bool
-	GUI        bool
-	NoGenerate bool
-	Debug      bool
-	Forward    []string
-	Cwd        string
-	Project    string
-	RunTarget  string
+	Command      string
+	Language     string
+	TargetOS     string
+	Target       string
+	Package      string
+	Output       string
+	SigningKey   string
+	SigningChain string
+	CGO          bool
+	Dynamic      bool
+	Compatible   bool
+	Minify       bool
+	GUI          bool
+	NoGenerate   bool
+	Debug        bool
+	Forward      []string
+	Cwd          string
+	Project      string
+	RunTarget    string
 }
 
 func parseRequest(command string, args, languages []string, allowOS bool) (*Request, error) {
@@ -94,6 +96,36 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 			continue
 		}
 
+		if lower == "--sign" {
+			if command != "build" {
+				return nil, fmt.Errorf("unknown argument for %s: %s", command, arg)
+			}
+
+			if i+1 >= len(args) || args[i+1] == "--" {
+				return nil, fmt.Errorf("%s requires a value", lower)
+			}
+
+			i++
+			req.SigningKey = args[i]
+
+			continue
+		}
+
+		if lower == "--sign-chain" {
+			if command != "build" {
+				return nil, fmt.Errorf("unknown argument for %s: %s", command, arg)
+			}
+
+			if i+1 >= len(args) || args[i+1] == "--" {
+				return nil, fmt.Errorf("%s requires a value", lower)
+			}
+
+			i++
+			req.SigningChain = args[i]
+
+			continue
+		}
+
 		if strings.HasPrefix(lower, "--package=") || strings.HasPrefix(lower, "--pkg=") {
 			_, req.Package, _ = strings.Cut(arg, "=")
 			if req.Package == "" {
@@ -111,6 +143,32 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 			_, req.Output, _ = strings.Cut(arg, "=")
 			if req.Output == "" {
 				return nil, fmt.Errorf("%s requires a value", strings.SplitN(lower, "=", 2)[0])
+			}
+
+			continue
+		}
+
+		if strings.HasPrefix(lower, "--sign=") {
+			if command != "build" {
+				return nil, fmt.Errorf("unknown argument for %s: %s", command, arg)
+			}
+
+			_, req.SigningKey, _ = strings.Cut(arg, "=")
+			if req.SigningKey == "" {
+				return nil, fmt.Errorf("--sign requires a value")
+			}
+
+			continue
+		}
+
+		if strings.HasPrefix(lower, "--sign-chain=") {
+			if command != "build" {
+				return nil, fmt.Errorf("unknown argument for %s: %s", command, arg)
+			}
+
+			_, req.SigningChain, _ = strings.Cut(arg, "=")
+			if req.SigningChain == "" {
+				return nil, fmt.Errorf("--sign-chain requires a value")
 			}
 
 			continue
@@ -215,6 +273,18 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 
 	if req.Output != "" && req.Language != "go" {
 		return nil, fmt.Errorf("--output is only supported for go builds")
+	}
+
+	if req.SigningKey != "" && req.TargetOS != "windows" {
+		return nil, fmt.Errorf("--sign is only supported for Windows builds")
+	}
+
+	if req.SigningKey != "" && req.Language != "go" {
+		return nil, fmt.Errorf("--sign is only supported for Go builds")
+	}
+
+	if req.SigningChain != "" && req.SigningKey == "" {
+		return nil, fmt.Errorf("--sign-chain requires --sign")
 	}
 
 	return req, nil

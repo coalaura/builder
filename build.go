@@ -55,27 +55,47 @@ func ExecuteBuild(req *Request) error {
 		}
 
 		if req.Minify {
+			upxAvailable := true
+
 			if !req.Debug {
 				_, err = exec.LookPath("upx")
 				if err != nil {
 					Infof("upx not found, skipping compression")
-
-					return nil
+					upxAvailable = false
 				}
 			}
 
-			Infof("[upx] compressing %s", filepath.Base(output))
+			if upxAvailable {
+				Infof("[upx] compressing %s", filepath.Base(output))
+
+				start = time.Now()
+
+				err = RunProcess(req.Debug, req.Cwd, nil, "upx", "--best", "--lzma", output)
+				if err != nil {
+					return err
+				}
+
+				if !req.Debug {
+					printDuration(start, "compressed")
+				}
+			}
+		}
+
+		if req.SigningKey != "" {
+			Infof("[sign] signing %s", filepath.Base(output))
+
+			if req.Debug {
+				return nil
+			}
 
 			start = time.Now()
 
-			err = RunProcess(req.Debug, req.Cwd, nil, "upx", "--best", "--lzma", output)
+			err = SignWindowsBinary(output, req.SigningKey, req.SigningChain)
 			if err != nil {
 				return err
 			}
 
-			if !req.Debug {
-				printDuration(start, "compressed")
-			}
+			printDuration(start, "signed")
 		}
 
 		return nil
