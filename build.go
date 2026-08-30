@@ -90,7 +90,13 @@ func ExecuteBuild(req *Request) error {
 
 			start = time.Now()
 
-			err = SignWindowsBinary(output, req.SigningKey, req.SigningChain)
+			switch req.TargetOS {
+			case "darwin":
+				err = SignDarwinBinary(output, req.SigningKey, req.SigningChain)
+			case "windows":
+				err = SignWindowsBinary(output, req.SigningKey, req.SigningChain)
+			}
+
 			if err != nil {
 				return err
 			}

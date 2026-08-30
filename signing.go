@@ -16,6 +16,8 @@ import (
 
 	"github.com/sassoftware/relic/v8/lib/authenticode"
 	"github.com/sassoftware/relic/v8/lib/certloader"
+	"github.com/sassoftware/relic/v8/lib/fruit/csblob"
+	"github.com/sassoftware/relic/v8/lib/fruit/machos"
 	"github.com/sassoftware/relic/v8/lib/passprompt"
 	"github.com/sassoftware/relic/v8/lib/pkcs7"
 	"github.com/sassoftware/relic/v8/lib/pkcs9"
@@ -101,29 +103,10 @@ func (timestamper *RFC3161Timestamper) Timestamp(ctx context.Context, request *p
 }
 
 func SignWindowsBinary(path, keyPath, chainSource string) error {
-	keyData, err := os.ReadFile(keyPath)
+	certificate, verifiedChain, err := prepareSigningCertificate(keyPath, chainSource)
 	if err != nil {
-		return fmt.Errorf("read signing key: %w", err)
+		return err
 	}
-
-	certificate, err := loadSigningCertificate(keyData, passprompt.PasswordPrompt{})
-	if err != nil {
-		return fmt.Errorf("load signing key: %w", err)
-	}
-
-	certificate.Timestamper = signingTimestamper
-
-	chainCertificates, err := loadSigningChain(context.Background(), chainSource, signingChainClient)
-	if err != nil {
-		return fmt.Errorf("load signing chain: %w", err)
-	}
-
-	verifiedChain, err := verifySigningChain(certificate, chainCertificates, time.Now())
-	if err != nil {
-		return fmt.Errorf("verify signing chain: %w", err)
-	}
-
-	certificate.Certificates = verifiedChain
 
 	file, err := os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {
@@ -171,6 +154,86 @@ func SignWindowsBinary(path, keyPath, chainSource string) error {
 	}
 
 	return nil
+}
+
+func SignDarwinBinary(path, keyPath, chainSource string) error {
+	certificate, verifiedChain, err := prepareSigningCertificate(keyPath, chainSource)
+	if err != nil {
+		return err
+	}
+
+	file, err := os.OpenFile(path, os.O_RDWR, 0)
+	if err != nil {
+		return fmt.Errorf("open binary for signing: %w", err)
+	}
+
+	defer file.Close()
+
+	params := &csblob.SignatureParams{
+		HashFunc:        crypto.SHA256,
+		Flags:           csblob.FlagRuntime,
+		SigningIdentity: filepath.Base(path),
+	}
+
+	patch, _, err := machos.Sign(context.Background(), file, certificate, params)
+	if err != nil {
+		return fmt.Errorf("sign Darwin binary: %w", err)
+	}
+
+	err = patch.Apply(file, path)
+	if err != nil {
+		return fmt.Errorf("write Darwin signature: %w", err)
+	}
+
+	signature, err := machos.Verify(file, nil, nil, false)
+	if err != nil {
+		return fmt.Errorf("verify Darwin signature: %w", err)
+	}
+
+	roots := x509.NewCertPool()
+
+	roots.AddCert(verifiedChain[len(verifiedChain)-1])
+
+	signingTime := time.Now()
+
+	if signature.Signature.CounterSignature != nil {
+		signingTime = signature.Signature.CounterSignature.SigningTime
+	}
+
+	err = signature.Signature.Signature.VerifyChain(roots, nil, x509.ExtKeyUsageCodeSigning, signingTime)
+	if err != nil {
+		return fmt.Errorf("verify embedded signing chain: %w", err)
+	}
+
+	return nil
+}
+
+func prepareSigningCertificate(keyPath, chainSource string) (*certloader.Certificate, []*x509.Certificate, error) {
+	keyData, err := os.ReadFile(keyPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("read signing key: %w", err)
+	}
+
+	certificate, err := loadSigningCertificate(keyData, passprompt.PasswordPrompt{})
+	if err != nil {
+		return nil, nil, fmt.Errorf("load signing key: %w", err)
+	}
+
+	certificate.Timestamper = signingTimestamper
+
+	chainCertificates, err := loadSigningChain(context.Background(), chainSource, signingChainClient)
+	if err != nil {
+		return nil, nil, fmt.Errorf("load signing chain: %w", err)
+	}
+
+	verifiedChain, err := verifySigningChain(certificate, chainCertificates, time.Now())
+	if err != nil {
+		return nil, nil, fmt.Errorf("verify signing chain: %w", err)
+	}
+
+	certificate.Certificates = verifiedChain
+
+	return certificate, verifiedChain, nil
 }
 
 func loadSigningChain(ctx context.Context, source string, client *http.Client) ([]*x509.Certificate, error) {
