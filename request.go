@@ -275,10 +275,6 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 		return nil, fmt.Errorf("--output is only supported for go builds")
 	}
 
-	if req.SigningKey != "" && req.TargetOS != "windows" && req.TargetOS != "darwin" {
-		return nil, fmt.Errorf("--sign is only supported for Windows and Darwin builds")
-	}
-
 	if req.SigningKey != "" && req.Language != "go" {
 		return nil, fmt.Errorf("--sign is only supported for Go builds")
 	}

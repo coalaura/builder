@@ -34,6 +34,11 @@ type EmptyFirstPasswordPrompt struct {
 	prompt   passprompt.PasswordGetter
 }
 
+type timedPasswordPrompt struct {
+	prompt   passprompt.PasswordGetter
+	duration time.Duration
+}
+
 type RFC3161Timestamper struct {
 	client *http.Client
 	url    string
@@ -56,6 +61,16 @@ func (prompt *EmptyFirstPasswordPrompt) GetPasswd(message string) (string, error
 	}
 
 	return prompt.prompt.GetPasswd(message)
+}
+
+func (prompt *timedPasswordPrompt) GetPasswd(message string) (string, error) {
+	start := time.Now()
+
+	password, err := prompt.prompt.GetPasswd(message)
+
+	prompt.duration += time.Since(start)
+
+	return password, err
 }
 
 func (timestamper *RFC3161Timestamper) Timestamp(ctx context.Context, request *pkcs9.Request) (*pkcs7.ContentInfoSignedData, error) {
@@ -102,10 +117,14 @@ func (timestamper *RFC3161Timestamper) Timestamp(ctx context.Context, request *p
 	return token, nil
 }
 
-func SignWindowsBinary(path, keyPath, chainSource string) error {
-	certificate, verifiedChain, err := prepareSigningCertificate(keyPath, chainSource)
+func SignWindowsBinary(path, keyPath, chainSource string, passphraseDuration *time.Duration) error {
+	certificate, verifiedChain, promptDuration, err := prepareSigningCertificate(keyPath, chainSource)
 	if err != nil {
 		return err
+	}
+
+	if passphraseDuration != nil {
+		*passphraseDuration = promptDuration
 	}
 
 	file, err := os.OpenFile(path, os.O_RDWR, 0)
@@ -156,10 +175,14 @@ func SignWindowsBinary(path, keyPath, chainSource string) error {
 	return nil
 }
 
-func SignDarwinBinary(path, keyPath, chainSource string) error {
-	certificate, verifiedChain, err := prepareSigningCertificate(keyPath, chainSource)
+func SignDarwinBinary(path, keyPath, chainSource string, passphraseDuration *time.Duration) error {
+	certificate, verifiedChain, promptDuration, err := prepareSigningCertificate(keyPath, chainSource)
 	if err != nil {
 		return err
+	}
+
+	if passphraseDuration != nil {
+		*passphraseDuration = promptDuration
 	}
 
 	file, err := os.OpenFile(path, os.O_RDWR, 0)
@@ -208,32 +231,34 @@ func SignDarwinBinary(path, keyPath, chainSource string) error {
 	return nil
 }
 
-func prepareSigningCertificate(keyPath, chainSource string) (*certloader.Certificate, []*x509.Certificate, error) {
+func prepareSigningCertificate(keyPath, chainSource string) (*certloader.Certificate, []*x509.Certificate, time.Duration, error) {
 	keyData, err := os.ReadFile(keyPath)
 	if err != nil {
-		return nil, nil, fmt.Errorf("read signing key: %w", err)
+		return nil, nil, 0, fmt.Errorf("read signing key: %w", err)
 	}
 
-	certificate, err := loadSigningCertificate(keyData, passprompt.PasswordPrompt{})
+	prompt := &timedPasswordPrompt{prompt: passprompt.PasswordPrompt{}}
+
+	certificate, err := loadSigningCertificate(keyData, prompt)
 	if err != nil {
-		return nil, nil, fmt.Errorf("load signing key: %w", err)
+		return nil, nil, prompt.duration, fmt.Errorf("load signing key: %w", err)
 	}
 
 	certificate.Timestamper = signingTimestamper
 
 	chainCertificates, err := loadSigningChain(context.Background(), chainSource, signingChainClient)
 	if err != nil {
-		return nil, nil, fmt.Errorf("load signing chain: %w", err)
+		return nil, nil, prompt.duration, fmt.Errorf("load signing chain: %w", err)
 	}
 
 	verifiedChain, err := verifySigningChain(certificate, chainCertificates, time.Now())
 	if err != nil {
-		return nil, nil, fmt.Errorf("verify signing chain: %w", err)
+		return nil, nil, prompt.duration, fmt.Errorf("verify signing chain: %w", err)
 	}
 
 	certificate.Certificates = verifiedChain
 
-	return certificate, verifiedChain, nil
+	return certificate, verifiedChain, prompt.duration, nil
 }
 
 func loadSigningChain(ctx context.Context, source string, client *http.Client) ([]*x509.Certificate, error) {

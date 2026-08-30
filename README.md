@@ -55,10 +55,10 @@ Opposing build modes are mutually exclusive. Combining `--cgo` with `--pure`, `-
 - `--gen`, `--generate`: explicitly run `go generate ./...` (the default)
 - `--no-gen`, `--no-generate`: skip `go generate ./...`
 - `--out`, `--output`: override the Go build output name or path
-- `--sign`: sign a Windows or Darwin Go build with a combined PEM or PFX/P12 key file
+- `--sign`: sign a Windows, Darwin or Linux Go build with a combined PEM or PFX/P12 key file
 - `--sign-chain`: add intermediate certificates from a local file or HTTPS URL
 
-The generation options are mutually exclusive. Signing uses embedded Authenticode support for Windows and Mach-O support for Darwin. Encrypted keys prompt for their passphrase without echoing it, and signatures are timestamped through DigiCert. The signing key must contain a verifiable certificate chain unless `--sign-chain` supplies the missing intermediates. Self-signed roots are used for validation; Mach-O signatures include the root certificate as required by Apple.
+The generation options are mutually exclusive. Signing uses embedded Authenticode support for Windows, Mach-O support for Darwin and a CMS/PKCS#7 module-style appended signature for Linux. Encrypted keys prompt for their passphrase without echoing it. Windows and Darwin signatures are timestamped through DigiCert. The signing key must contain a verifiable certificate chain unless `--sign-chain` supplies the missing intermediates. Self-signed roots are used for validation; Mach-O signatures include the root certificate as required by Apple, while Linux signatures embed the leaf and intermediate certificates.
 
 ### Execution
 
@@ -70,6 +70,7 @@ builder build go windows --output example.exe
 builder build go windows --sign certificate.pfx
 builder build go windows --sign certificate.pfx --sign-chain https://example.com/issuing.pem
 builder build go darwin --sign certificate.p12 --sign-chain issuing.pem
+builder build go linux --sign certificate.pem --sign-chain issuing.pem
 builder run go --pkg ./cmd/example -- banner.png
 builder test go --no-generate --debug
 ```
