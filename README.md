@@ -56,11 +56,23 @@ Opposing build modes are mutually exclusive. Combining `--cgo` with `--pure`, `-
 - `--gen`, `--generate`: explicitly run `go generate ./...` (the default)
 - `--no-gen`, `--no-generate`: skip `go generate ./...`
 - `--out`, `--output`: override the Go build output name or path
-- `--sign`: sign a Windows, Darwin or Linux Go build with a combined PEM or PFX/P12 key file
-- `--sign-chain`: add certificates from a local file or HTTPS URL; repeat for multiple sources
-- `--passphrase`: supply the signing-key passphrase without an interactive prompt
 
-The generation options are mutually exclusive. Signing uses embedded Authenticode support for Windows, thin Mach-O support for Darwin and a CMS/PKCS#7 module-style appended signature for Linux. The standalone command detects the binary format. Encrypted keys prompt for their passphrase without echoing it unless `--passphrase` supplies it programmatically. Windows and Darwin signatures are timestamped through DigiCert. The signing key must contain a verifiable certificate chain unless `--sign-chain` supplies the missing certificates. Self-signed roots are used for validation; Mach-O signatures include the root certificate as required by Apple, while Linux signatures embed the leaf and intermediate certificates.
+The generation options are mutually exclusive.
+
+### Signing
+
+- `--sign`: sign with a combined PEM or PFX/P12 key file
+- `--sign-chain`: add certificates from a local file or HTTPS URL; repeat for multiple sources
+- `--passphrase`: supply the key passphrase without an interactive prompt
+
+Builder supports Authenticode signatures for Windows, thin Mach-O signatures for Darwin and appended CMS/PKCS#7 signatures for Linux. Windows signatures use DigiCert timestamps, while Darwin signatures use Apple's timestamp service. The standalone `builder sign` command detects the binary format automatically.
+
+Signing chains are verified against the system trust store. Use one or more `--sign-chain` options to provide missing intermediate or root certificates. Encrypted keys prompt for their passphrase unless `--passphrase` is provided.
+
+```sh
+builder build go linux --sign certificate.pfx --sign-chain issuing.pem --sign-chain root.pem
+builder sign example.exe --sign certificate.pfx --sign-chain https://example.com/issuing.pem --passphrase secret
+```
 
 ### Execution
 
@@ -69,11 +81,6 @@ The generation options are mutually exclusive. Signing uses embedded Authenticod
 ```sh
 builder build go --cgo --dyn --pkg ./cmd/example
 builder build go windows --output example.exe
-builder build go windows --sign certificate.pfx
-builder build go windows --sign certificate.pfx --sign-chain https://example.com/issuing.pem
-builder build go darwin --sign certificate.p12 --sign-chain issuing.pem
-builder build go linux --sign certificate.pem --sign-chain issuing.pem
-builder sign example.exe --sign certificate.pfx --sign-chain https://example.com/issuing.pem --passphrase secret
 builder run go --pkg ./cmd/example -- banner.png
 builder test go --no-generate --debug
 ```
