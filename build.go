@@ -39,8 +39,7 @@ func ExecuteBuild(req *Request) error {
 
 		args := []string{"build"}
 
-		args = append(args, cfg.BuildFlags...)
-		args = append(args, "-ldflags", cfg.LDFlags)
+		args = append(args, resolveGoFlags(req, cfg)...)
 		args = append(args, "-o", output)
 		args = append(args, req.Forward...)
 		args = append(args, main)

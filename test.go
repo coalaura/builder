@@ -37,9 +37,9 @@ func ExecuteTest(req *Request) error {
 
 		Infof("[go] testing %s (mode: %s)", target, cfg.Mode)
 
-		args := []string{"test", "-json"}
+		args := []string{"test"}
 
-		args = append(args, resolveTagArgs(cfg.BuildFlags)...)
+		args = append(args, resolveGoFlags(req, cfg, "-json")...)
 		args = append(args, target)
 		args = append(args, req.Forward...)
 

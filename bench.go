@@ -19,9 +19,9 @@ func ExecuteBench(req *Request) error {
 
 		Infof("[go] benchmarking %s (mode: %s)", target, cfg.Mode)
 
-		args := []string{"test", "-run=^$", "-bench=.", "-benchmem"}
+		args := []string{"test"}
 
-		args = append(args, resolveTagArgs(cfg.BuildFlags)...)
+		args = append(args, resolveGoFlags(req, cfg, "-run=^$", "-bench=.", "-benchmem")...)
 		args = append(args, target)
 		args = append(args, req.Forward...)
 

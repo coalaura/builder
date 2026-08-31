@@ -72,7 +72,7 @@ func NewSubcommand(name, usage string, languages []string, allowOS bool) *cli.Co
 		parts = append(parts, "[--gui]")
 	}
 
-	parts = append(parts, "[--pkg path]", "[target]", "[-- arguments...]")
+	parts = append(parts, "[--pkg path]", "[go flags...]", "[target]", "[-- arguments...]")
 
 	argsUsage := strings.Join(parts, " ")
 

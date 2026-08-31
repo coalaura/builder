@@ -25,6 +25,7 @@ type Request struct {
 	GUI           bool
 	NoGenerate    bool
 	Debug         bool
+	GoFlags       []string
 	Forward       []string
 	Cwd           string
 	Project       string
@@ -70,6 +71,44 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 		}
 
 		lower := strings.ToLower(arg)
+
+		if lower == "-o" && command == "build" {
+			if i+1 >= len(args) || args[i+1] == "--" {
+				return nil, fmt.Errorf("%s requires a value", lower)
+			}
+
+			i++
+
+			req.Output = args[i]
+
+			continue
+		}
+
+		if strings.HasPrefix(lower, "-o=") && command == "build" {
+			_, req.Output, _ = strings.Cut(arg, "=")
+			if req.Output == "" {
+				return nil, fmt.Errorf("-o requires a value")
+			}
+
+			continue
+		}
+
+		goFlag, takesValue, recognized := parseGoFlag(command, arg)
+		if recognized {
+			req.GoFlags = append(req.GoFlags, goFlag)
+
+			if takesValue {
+				if i+1 >= len(args) || args[i+1] == "--" {
+					return nil, fmt.Errorf("%s requires a value", goFlag)
+				}
+
+				i++
+
+				req.GoFlags = append(req.GoFlags, args[i])
+			}
+
+			continue
+		}
 
 		if lower == "--package" || lower == "--pkg" {
 			if i+1 >= len(args) || args[i+1] == "--" {
@@ -307,6 +346,10 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 		return nil, fmt.Errorf("--output is only supported for go builds")
 	}
 
+	if len(req.GoFlags) != 0 && req.Language != "go" {
+		return nil, fmt.Errorf("go flags are only supported for Go projects")
+	}
+
 	if req.SigningKey != "" && req.Language != "go" {
 		return nil, fmt.Errorf("--sign is only supported for Go builds")
 	}
@@ -320,6 +363,58 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 	}
 
 	return req, nil
+}
+
+func parseGoFlag(command, arg string) (string, bool, bool) {
+	if !strings.HasPrefix(arg, "-") || strings.HasPrefix(arg, "--") {
+		return "", false, false
+	}
+
+	name, _, joined := strings.Cut(arg, "=")
+	name = strings.TrimPrefix(name, "-")
+
+	takesValue, recognized := goFlagType(name)
+	if !recognized || !supportsGoFlag(command, name) {
+		return "", false, false
+	}
+
+	if joined {
+		return arg, false, true
+	}
+
+	return arg, takesValue, true
+}
+
+func goFlagType(name string) (bool, bool) {
+	switch name {
+	case "a", "asan", "benchmem", "buildvcs", "c", "cover", "failfast", "fullpath", "json", "linkshared",
+		"modcacherw", "msan", "n", "race", "short", "trimpath", "v", "work", "x":
+		return false, true
+	case "asmflags", "bench", "benchtime", "blockprofile", "blockprofilerate", "buildmode", "compiler", "count",
+		"covermode", "coverpkg", "coverprofile", "cpu", "cpuprofile", "exec", "fuzz", "fuzzminimizetime",
+		"fuzztime", "gccgoflags", "gcflags", "installsuffix", "ldflags", "list", "memprofile",
+		"memprofilerate", "mod", "modfile", "mutexprofile", "mutexprofilefraction", "o", "outputdir", "overlay",
+		"p", "parallel", "pgo", "pkgdir", "run", "shuffle", "skip", "tags", "timeout", "toolexec", "trace", "vet":
+		return true, true
+	default:
+		return false, false
+	}
+}
+
+func supportsGoFlag(command, name string) bool {
+	switch name {
+	case "bench", "benchtime", "benchmem", "blockprofile", "blockprofilerate", "c", "count", "coverprofile",
+		"cpu", "cpuprofile", "failfast", "fullpath", "fuzz", "fuzzminimizetime", "fuzztime", "json", "list",
+		"memprofile", "memprofilerate", "mutexprofile", "mutexprofilefraction", "outputdir", "parallel", "run",
+		"short", "shuffle", "skip", "timeout", "trace", "vet":
+		return command == "test" || command == "bench"
+	case "exec":
+		return command == "run" || command == "test" || command == "bench"
+	case "o":
+		return command == "test" || command == "bench"
+	default:
+		return true
+	}
 }
 
 func normalizeOS(value string) string {

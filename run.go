@@ -36,7 +36,7 @@ func ExecuteRun(req *Request) error {
 
 		args := []string{"run"}
 
-		args = append(args, resolveRunBuildArgs(req, cfg)...)
+		args = append(args, resolveGoFlags(req, cfg)...)
 		args = append(args, main)
 		args = append(args, req.Forward...)
 
