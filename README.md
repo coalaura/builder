@@ -31,7 +31,7 @@ builder build [language] [os] [options] [target]
 builder run [language] [options] [target] [-- arguments...]
 builder test [language] [options] [target] [-- arguments...]
 builder bench [language] [options] [target] [-- arguments...]
-builder sign binary --sign key-file [--sign-chain file-or-url] [--passphrase value]
+builder sign binary --sign key-file [--sign-chain file-or-url]... [--passphrase value]
 ```
 
 Builder attempts to detect the project language when omitted. Only `build` accepts an operating system target.
@@ -57,10 +57,10 @@ Opposing build modes are mutually exclusive. Combining `--cgo` with `--pure`, `-
 - `--no-gen`, `--no-generate`: skip `go generate ./...`
 - `--out`, `--output`: override the Go build output name or path
 - `--sign`: sign a Windows, Darwin or Linux Go build with a combined PEM or PFX/P12 key file
-- `--sign-chain`: add intermediate certificates from a local file or HTTPS URL
+- `--sign-chain`: add certificates from a local file or HTTPS URL; repeat for multiple sources
 - `--passphrase`: supply the signing-key passphrase without an interactive prompt
 
-The generation options are mutually exclusive. Signing uses embedded Authenticode support for Windows, thin Mach-O support for Darwin and a CMS/PKCS#7 module-style appended signature for Linux. The standalone command detects the binary format. Encrypted keys prompt for their passphrase without echoing it unless `--passphrase` supplies it programmatically. Windows and Darwin signatures are timestamped through DigiCert. The signing key must contain a verifiable certificate chain unless `--sign-chain` supplies the missing intermediates. Self-signed roots are used for validation; Mach-O signatures include the root certificate as required by Apple, while Linux signatures embed the leaf and intermediate certificates.
+The generation options are mutually exclusive. Signing uses embedded Authenticode support for Windows, thin Mach-O support for Darwin and a CMS/PKCS#7 module-style appended signature for Linux. The standalone command detects the binary format. Encrypted keys prompt for their passphrase without echoing it unless `--passphrase` supplies it programmatically. Windows and Darwin signatures are timestamped through DigiCert. The signing key must contain a verifiable certificate chain unless `--sign-chain` supplies the missing certificates. Self-signed roots are used for validation; Mach-O signatures include the root certificate as required by Apple, while Linux signatures embed the leaf and intermediate certificates.
 
 ### Execution
 

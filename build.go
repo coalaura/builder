@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"time"
+
+	"github.com/coalaura/builder/signing"
 )
 
 func ExecuteBuild(req *Request) error {
@@ -89,9 +91,14 @@ func ExecuteBuild(req *Request) error {
 			}
 
 			start = time.Now()
-			passphraseDuration := time.Duration(0)
 
-			err = SignBinary(output, req.SigningKey, req.SigningChain, req.Passphrase, &passphraseDuration)
+			passphraseDuration, err := signing.Sign(signing.Options{
+				Path:          output,
+				SigningKey:    req.SigningKey,
+				SigningChains: req.SigningChains,
+				Passphrase:    req.Passphrase,
+				UserAgent:     "builder/" + Version,
+			})
 
 			if err != nil {
 				return err

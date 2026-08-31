@@ -9,26 +9,26 @@ import (
 )
 
 type Request struct {
-	Command      string
-	Language     string
-	TargetOS     string
-	Target       string
-	Package      string
-	Output       string
-	SigningKey   string
-	SigningChain string
-	Passphrase   string
-	CGO          bool
-	Dynamic      bool
-	Compatible   bool
-	Minify       bool
-	GUI          bool
-	NoGenerate   bool
-	Debug        bool
-	Forward      []string
-	Cwd          string
-	Project      string
-	RunTarget    string
+	Command       string
+	Language      string
+	TargetOS      string
+	Target        string
+	Package       string
+	Output        string
+	SigningKey    string
+	SigningChains []string
+	Passphrase    string
+	CGO           bool
+	Dynamic       bool
+	Compatible    bool
+	Minify        bool
+	GUI           bool
+	NoGenerate    bool
+	Debug         bool
+	Forward       []string
+	Cwd           string
+	Project       string
+	RunTarget     string
 }
 
 func parseRequest(command string, args, languages []string, allowOS bool) (*Request, error) {
@@ -122,7 +122,7 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 			}
 
 			i++
-			req.SigningChain = args[i]
+			req.SigningChains = append(req.SigningChains, args[i])
 
 			continue
 		}
@@ -183,10 +183,12 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 				return nil, fmt.Errorf("unknown argument for %s: %s", command, arg)
 			}
 
-			_, req.SigningChain, _ = strings.Cut(arg, "=")
-			if req.SigningChain == "" {
+			_, signingChain, _ := strings.Cut(arg, "=")
+			if signingChain == "" {
 				return nil, fmt.Errorf("--sign-chain requires a value")
 			}
+
+			req.SigningChains = append(req.SigningChains, signingChain)
 
 			continue
 		}
@@ -309,7 +311,7 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 		return nil, fmt.Errorf("--sign is only supported for Go builds")
 	}
 
-	if req.SigningChain != "" && req.SigningKey == "" {
+	if len(req.SigningChains) != 0 && req.SigningKey == "" {
 		return nil, fmt.Errorf("--sign-chain requires --sign")
 	}
 

@@ -1,9 +1,9 @@
-package main
+// Package signing signs and verifies PE, Mach-O, and ELF binaries.
+package signing
 
 import (
 	"bytes"
 	"context"
-	"crypto"
 	"crypto/x509"
 	"debug/macho"
 	"encoding/binary"
@@ -16,10 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sassoftware/relic/v8/lib/authenticode"
 	"github.com/sassoftware/relic/v8/lib/certloader"
-	"github.com/sassoftware/relic/v8/lib/fruit/csblob"
-	"github.com/sassoftware/relic/v8/lib/fruit/machos"
 	"github.com/sassoftware/relic/v8/lib/passprompt"
 	"github.com/sassoftware/relic/v8/lib/pkcs7"
 	"github.com/sassoftware/relic/v8/lib/pkcs9"
@@ -27,6 +24,7 @@ import (
 
 const (
 	digiCertTimestampURL = "http://timestamp.digicert.com"
+	appleTimestampURL    = "http://timestamp.apple.com/ts01"
 	maxSigningChainSize  = 4 << 20
 	maxTimestampSize     = 4 << 20
 )
@@ -38,7 +36,7 @@ const (
 	binaryFormatLinux
 )
 
-type EmptyFirstPasswordPrompt struct {
+type emptyFirstPasswordPrompt struct {
 	prompted bool
 	prompt   passprompt.PasswordGetter
 }
@@ -53,21 +51,27 @@ type suppliedPasswordPrompt struct {
 	used     bool
 }
 
-type RFC3161Timestamper struct {
-	client *http.Client
-	url    string
+type rfc3161Timestamper struct {
+	client    *http.Client
+	url       string
+	userAgent string
+}
+
+// Options describes a binary signing operation.
+type Options struct {
+	Path          string
+	SigningKey    string
+	SigningChains []string
+	Passphrase    string
+	UserAgent     string
 }
 
 var (
-	signingTimestamper pkcs9.Timestamper = &RFC3161Timestamper{
-		client: &http.Client{Timeout: 30 * time.Second},
-		url:    digiCertTimestampURL,
-	}
-
+	timestampClient    = &http.Client{Timeout: 30 * time.Second}
 	signingChainClient = &http.Client{Timeout: 30 * time.Second}
 )
 
-func (prompt *EmptyFirstPasswordPrompt) GetPasswd(message string) (string, error) {
+func (prompt *emptyFirstPasswordPrompt) GetPasswd(message string) (string, error) {
 	if !prompt.prompted {
 		prompt.prompted = true
 
@@ -97,12 +101,13 @@ func (prompt *suppliedPasswordPrompt) GetPasswd(string) (string, error) {
 	return prompt.password, nil
 }
 
-func (timestamper *RFC3161Timestamper) Timestamp(ctx context.Context, request *pkcs9.Request) (*pkcs7.ContentInfoSignedData, error) {
+func (timestamper *rfc3161Timestamper) Timestamp(ctx context.Context, request *pkcs9.Request) (*pkcs7.ContentInfoSignedData, error) {
 	if !request.Hash.Available() {
 		return nil, fmt.Errorf("timestamp hash is unavailable")
 	}
 
 	digest := request.Hash.New()
+
 	_, _ = digest.Write(request.EncryptedDigest)
 
 	timestampRequest, httpRequest, err := pkcs9.NewRequest(timestamper.url, request.Hash, digest.Sum(nil))
@@ -111,7 +116,7 @@ func (timestamper *RFC3161Timestamper) Timestamp(ctx context.Context, request *p
 	}
 
 	httpRequest.Header.Set("Accept", "application/timestamp-reply")
-	httpRequest.Header.Set("User-Agent", "builder/"+Version)
+	httpRequest.Header.Set("User-Agent", timestamper.userAgent)
 
 	response, err := timestamper.client.Do(httpRequest.WithContext(ctx))
 	if err != nil {
@@ -141,139 +146,47 @@ func (timestamper *RFC3161Timestamper) Timestamp(ctx context.Context, request *p
 	return token, nil
 }
 
-func SignBinary(path, keyPath, chainSource, passphrase string, passphraseDuration *time.Duration) error {
-	format, err := detectBinaryFormat(path)
+// Sign detects the binary format, signs the file, and verifies the result.
+// It returns the time spent waiting for an interactive passphrase.
+func Sign(options Options) (time.Duration, error) {
+	format, err := detectBinaryFormat(options.Path)
 	if err != nil {
-		return err
+		return 0, err
 	}
+
+	passphraseDuration := time.Duration(0)
 
 	switch format {
 	case binaryFormatWindows:
-		return SignWindowsBinary(path, keyPath, chainSource, passphrase, passphraseDuration)
+		err = signWindowsBinary(options, &passphraseDuration)
 	case binaryFormatDarwin:
-		return SignDarwinBinary(path, keyPath, chainSource, passphrase, passphraseDuration)
+		err = signDarwinBinary(options, &passphraseDuration)
 	case binaryFormatLinux:
-		return SignLinuxBinary(path, keyPath, chainSource, passphrase, passphraseDuration)
+		err = signLinuxBinary(options, &passphraseDuration)
+	default:
+		err = fmt.Errorf("binary format is not supported")
 	}
 
-	return fmt.Errorf("binary format is not supported")
+	return passphraseDuration, err
 }
 
-func SignWindowsBinary(path, keyPath, chainSource, passphrase string, passphraseDuration *time.Duration) error {
-	certificate, verifiedChain, promptDuration, err := prepareSigningCertificate(keyPath, chainSource, passphrase)
-	if err != nil {
-		return err
+func newWindowsTimestamper(userAgent string) pkcs9.Timestamper {
+	return &rfc3161Timestamper{
+		client:    timestampClient,
+		url:       digiCertTimestampURL,
+		userAgent: userAgent,
 	}
-
-	if passphraseDuration != nil {
-		*passphraseDuration = promptDuration
-	}
-
-	file, err := os.OpenFile(path, os.O_RDWR, 0)
-	if err != nil {
-		return fmt.Errorf("open binary for signing: %w", err)
-	}
-
-	defer file.Close()
-
-	digest, err := authenticode.DigestPE(file, crypto.SHA256, false)
-	if err != nil {
-		return fmt.Errorf("digest Windows binary: %w", err)
-	}
-
-	patch, _, err := digest.Sign(context.Background(), certificate, nil)
-	if err != nil {
-		return fmt.Errorf("sign Windows binary: %w", err)
-	}
-
-	err = patch.Apply(file, path)
-	if err != nil {
-		return fmt.Errorf("write Windows signature: %w", err)
-	}
-
-	signatures, err := authenticode.VerifyPE(file, false)
-	if err != nil {
-		return fmt.Errorf("verify Windows signature: %w", err)
-	}
-
-	if len(signatures) != 1 {
-		return fmt.Errorf("verify Windows signature: found %d signatures", len(signatures))
-	}
-
-	roots := x509.NewCertPool()
-	roots.AddCert(verifiedChain[len(verifiedChain)-1])
-
-	signingTime := time.Now()
-
-	if signatures[0].CounterSignature != nil {
-		signingTime = signatures[0].CounterSignature.SigningTime
-	}
-
-	err = signatures[0].Signature.VerifyChain(roots, nil, x509.ExtKeyUsageCodeSigning, signingTime)
-	if err != nil {
-		return fmt.Errorf("verify embedded signing chain: %w", err)
-	}
-
-	return nil
 }
 
-func SignDarwinBinary(path, keyPath, chainSource, passphrase string, passphraseDuration *time.Duration) error {
-	certificate, verifiedChain, promptDuration, err := prepareSigningCertificate(keyPath, chainSource, passphrase)
-	if err != nil {
-		return err
+func newDarwinTimestamper(userAgent string) pkcs9.Timestamper {
+	return &rfc3161Timestamper{
+		client:    timestampClient,
+		url:       appleTimestampURL,
+		userAgent: userAgent,
 	}
-
-	if passphraseDuration != nil {
-		*passphraseDuration = promptDuration
-	}
-
-	file, err := os.OpenFile(path, os.O_RDWR, 0)
-	if err != nil {
-		return fmt.Errorf("open binary for signing: %w", err)
-	}
-
-	defer file.Close()
-
-	params := &csblob.SignatureParams{
-		HashFunc:        crypto.SHA256,
-		Flags:           csblob.FlagRuntime,
-		SigningIdentity: filepath.Base(path),
-	}
-
-	patch, _, err := machos.Sign(context.Background(), file, certificate, params)
-	if err != nil {
-		return fmt.Errorf("sign Darwin binary: %w", err)
-	}
-
-	err = patch.Apply(file, path)
-	if err != nil {
-		return fmt.Errorf("write Darwin signature: %w", err)
-	}
-
-	signature, err := machos.Verify(file, nil, nil, false)
-	if err != nil {
-		return fmt.Errorf("verify Darwin signature: %w", err)
-	}
-
-	roots := x509.NewCertPool()
-
-	roots.AddCert(verifiedChain[len(verifiedChain)-1])
-
-	signingTime := time.Now()
-
-	if signature.Signature.CounterSignature != nil {
-		signingTime = signature.Signature.CounterSignature.SigningTime
-	}
-
-	err = signature.Signature.Signature.VerifyChain(roots, nil, x509.ExtKeyUsageCodeSigning, signingTime)
-	if err != nil {
-		return fmt.Errorf("verify embedded signing chain: %w", err)
-	}
-
-	return nil
 }
 
-func prepareSigningCertificate(keyPath, chainSource, passphrase string) (*certloader.Certificate, []*x509.Certificate, time.Duration, error) {
+func prepareSigningCertificate(keyPath string, chainSources []string, passphrase string) (*certloader.Certificate, []*x509.Certificate, time.Duration, error) {
 	keyData, err := os.ReadFile(keyPath)
 	if err != nil {
 		return nil, nil, 0, fmt.Errorf("read signing key: %w", err)
@@ -291,9 +204,7 @@ func prepareSigningCertificate(keyPath, chainSource, passphrase string) (*certlo
 		return nil, nil, interactivePrompt.duration, fmt.Errorf("load signing key: %w", err)
 	}
 
-	certificate.Timestamper = signingTimestamper
-
-	chainCertificates, err := loadSigningChain(context.Background(), chainSource, signingChainClient)
+	chainCertificates, err := loadSigningChains(context.Background(), chainSources, signingChainClient)
 	if err != nil {
 		return nil, nil, interactivePrompt.duration, fmt.Errorf("load signing chain: %w", err)
 	}
@@ -306,6 +217,27 @@ func prepareSigningCertificate(keyPath, chainSource, passphrase string) (*certlo
 	certificate.Certificates = verifiedChain
 
 	return certificate, verifiedChain, interactivePrompt.duration, nil
+}
+
+func verifyTimestampedSignature(signature *pkcs9.TimestampedSignature, signingRoot *x509.Certificate) error {
+	if signature.CounterSignature == nil {
+		return fmt.Errorf("secure timestamp is missing")
+	}
+
+	err := signature.CounterSignature.VerifyChain(nil, nil)
+	if err != nil {
+		return fmt.Errorf("verify timestamp chain: %w", err)
+	}
+
+	roots := x509.NewCertPool()
+	roots.AddCert(signingRoot)
+
+	err = signature.Signature.VerifyChain(roots, nil, x509.ExtKeyUsageCodeSigning, signature.CounterSignature.SigningTime)
+	if err != nil {
+		return fmt.Errorf("verify embedded signing chain: %w", err)
+	}
+
+	return nil
 }
 
 func detectBinaryFormat(path string) (int, error) {
@@ -402,81 +334,61 @@ func loadSigningChain(ctx context.Context, source string, client *http.Client) (
 	return certificates, nil
 }
 
+func loadSigningChains(ctx context.Context, sources []string, client *http.Client) ([]*x509.Certificate, error) {
+	var certificates []*x509.Certificate
+
+	for _, source := range sources {
+		loaded, err := loadSigningChain(ctx, source, client)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", source, err)
+		}
+
+		certificates = append(certificates, loaded...)
+	}
+
+	return certificates, nil
+}
+
 func verifySigningChain(certificate *certloader.Certificate, supplied []*x509.Certificate, currentTime time.Time) ([]*x509.Certificate, error) {
 	if certificate.Leaf == nil {
 		return nil, fmt.Errorf("signing certificate is missing")
 	}
 
+	roots, err := x509.SystemCertPool()
+	if err != nil {
+		roots = x509.NewCertPool()
+	}
+
+	return verifySigningChainWithRoots(certificate, supplied, currentTime, roots)
+}
+
+func verifySigningChainWithRoots(certificate *certloader.Certificate, supplied []*x509.Certificate, currentTime time.Time, roots *x509.CertPool) ([]*x509.Certificate, error) {
 	candidates := append([]*x509.Certificate(nil), certificate.Certificates...)
 
 	candidates = append(candidates, supplied...)
 	candidates = uniqueCertificates(candidates)
 
-	chain := []*x509.Certificate{certificate.Leaf}
-
-	used := map[string]bool{
-		string(certificate.Leaf.Raw): true,
+	if roots == nil {
+		roots = x509.NewCertPool()
+	} else {
+		roots = roots.Clone()
 	}
-
-	current := certificate.Leaf
-
-	for {
-		if bytes.Equal(current.RawIssuer, current.RawSubject) {
-			err := current.CheckSignature(current.SignatureAlgorithm, current.RawTBSCertificate, current.Signature)
-			if err != nil {
-				return nil, fmt.Errorf("self-signed certificate %q has an invalid signature: %w", current.Subject.String(), err)
-			}
-
-			break
-		}
-
-		issuers := make([]*x509.Certificate, 0, 1)
-
-		for _, candidate := range candidates {
-			if used[string(candidate.Raw)] || !bytes.Equal(current.RawIssuer, candidate.RawSubject) {
-				continue
-			}
-
-			err := current.CheckSignatureFrom(candidate)
-			if err == nil {
-				issuers = append(issuers, candidate)
-			}
-		}
-
-		if len(issuers) == 0 {
-			if current == certificate.Leaf {
-				return nil, fmt.Errorf("issuer for %q is missing", current.Subject.String())
-			}
-
-			break
-		}
-
-		if len(issuers) > 1 {
-			return nil, fmt.Errorf("multiple issuers match %q", current.Subject.String())
-		}
-
-		current = issuers[0]
-
-		chain = append(chain, current)
-		used[string(current.Raw)] = true
-	}
-
-	for _, candidate := range candidates {
-		if !used[string(candidate.Raw)] {
-			return nil, fmt.Errorf("certificate %q is not part of the signing chain", candidate.Subject.String())
-		}
-	}
-
-	roots := x509.NewCertPool()
-
-	roots.AddCert(chain[len(chain)-1])
 
 	intermediates := x509.NewCertPool()
 
-	if len(chain) > 2 {
-		for _, intermediate := range chain[1 : len(chain)-1] {
-			intermediates.AddCert(intermediate)
+	for _, candidate := range candidates {
+		if bytes.Equal(candidate.RawIssuer, candidate.RawSubject) {
+			err := candidate.CheckSignature(candidate.SignatureAlgorithm, candidate.RawTBSCertificate, candidate.Signature)
+			if err != nil {
+				return nil, fmt.Errorf("self-signed certificate %q has an invalid signature: %w", candidate.Subject.String(), err)
+			}
+
+			roots.AddCert(candidate)
+
+			continue
 		}
+
+		intermediates.AddCert(candidate)
 	}
 
 	options := x509.VerifyOptions{
@@ -486,12 +398,44 @@ func verifySigningChain(certificate *certloader.Certificate, supplied []*x509.Ce
 		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
 	}
 
-	_, err := certificate.Leaf.Verify(options)
+	chains, err := certificate.Leaf.Verify(options)
 	if err != nil {
 		return nil, err
 	}
 
-	return chain, nil
+	for _, chain := range chains {
+		if chainContainsAll(chain, candidates) {
+			return chain, nil
+		}
+	}
+
+	for _, candidate := range candidates {
+		if !chainContainsCertificate(chains[0], candidate) {
+			return nil, fmt.Errorf("certificate %q is not part of the signing chain", candidate.Subject.String())
+		}
+	}
+
+	return nil, fmt.Errorf("signing chain is invalid")
+}
+
+func chainContainsAll(chain, certificates []*x509.Certificate) bool {
+	for _, certificate := range certificates {
+		if !chainContainsCertificate(chain, certificate) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func chainContainsCertificate(chain []*x509.Certificate, certificate *x509.Certificate) bool {
+	for _, member := range chain {
+		if bytes.Equal(member.Raw, certificate.Raw) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func uniqueCertificates(certificates []*x509.Certificate) []*x509.Certificate {
@@ -525,7 +469,7 @@ func loadSigningCertificate(keyData []byte, prompt passprompt.PasswordGetter) (*
 		return certloader.LoadTokenCertificates(key, "", "", trimmed)
 	}
 
-	pkcs12Prompt := &EmptyFirstPasswordPrompt{prompt: prompt}
+	pkcs12Prompt := &emptyFirstPasswordPrompt{prompt: prompt}
 
 	return certloader.ParsePKCS12(trimmed, pkcs12Prompt)
 }

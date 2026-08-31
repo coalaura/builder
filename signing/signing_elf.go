@@ -1,4 +1,4 @@
-package main
+package signing
 
 import (
 	"bytes"
@@ -19,8 +19,8 @@ const (
 	linuxModuleSignatureMarker       = "~Module signature appended~\n"
 )
 
-func SignLinuxBinary(path, keyPath, chainSource, passphrase string, passphraseDuration *time.Duration) error {
-	certificate, verifiedChain, promptDuration, err := prepareSigningCertificate(keyPath, chainSource, passphrase)
+func signLinuxBinary(options Options, passphraseDuration *time.Duration) error {
+	certificate, verifiedChain, promptDuration, err := prepareSigningCertificate(options.SigningKey, options.SigningChains, options.Passphrase)
 	if err != nil {
 		return err
 	}
@@ -29,7 +29,7 @@ func SignLinuxBinary(path, keyPath, chainSource, passphrase string, passphraseDu
 		*passphraseDuration = promptDuration
 	}
 
-	contents, err := os.ReadFile(path)
+	contents, err := os.ReadFile(options.Path)
 	if err != nil {
 		return fmt.Errorf("read Linux binary for signing: %w", err)
 	}
@@ -76,7 +76,7 @@ func SignLinuxBinary(path, keyPath, chainSource, passphrase string, passphraseDu
 	trailer = append(trailer, metadata...)
 	trailer = append(trailer, linuxModuleSignatureMarker...)
 
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND, 0)
+	file, err := os.OpenFile(options.Path, os.O_WRONLY|os.O_APPEND, 0)
 	if err != nil {
 		return fmt.Errorf("open Linux binary for signing: %w", err)
 	}
@@ -96,7 +96,7 @@ func SignLinuxBinary(path, keyPath, chainSource, passphrase string, passphraseDu
 
 	roots.AddCert(verifiedChain[len(verifiedChain)-1])
 
-	err = VerifyLinuxBinary(path, roots)
+	err = verifyLinuxBinary(options.Path, roots)
 	if err != nil {
 		return fmt.Errorf("verify Linux signature: %w", err)
 	}
@@ -104,7 +104,7 @@ func SignLinuxBinary(path, keyPath, chainSource, passphrase string, passphraseDu
 	return nil
 }
 
-func VerifyLinuxBinary(path string, roots *x509.CertPool) error {
+func verifyLinuxBinary(path string, roots *x509.CertPool) error {
 	contents, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("read signed Linux binary: %w", err)

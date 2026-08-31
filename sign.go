@@ -7,21 +7,22 @@ import (
 	"strings"
 	"time"
 
+	"github.com/coalaura/builder/signing"
 	"github.com/urfave/cli/v3"
 )
 
 type SignRequest struct {
-	Binary       string
-	SigningKey   string
-	SigningChain string
-	Passphrase   string
+	Binary        string
+	SigningKey    string
+	SigningChains []string
+	Passphrase    string
 }
 
 func NewSignSubcommand() *cli.Command {
 	return &cli.Command{
 		Name:            "sign",
 		Usage:           "sign an existing binary",
-		ArgsUsage:       "binary --sign key-file [--sign-chain file-or-url] [--passphrase value]",
+		ArgsUsage:       "binary --sign key-file [--sign-chain file-or-url]... [--passphrase value]",
 		SkipFlagParsing: true,
 		Action: func(_ context.Context, cmd *cli.Command) error {
 			args := cmd.Args().Slice()
@@ -43,9 +44,15 @@ func ExecuteSign(req *SignRequest) error {
 	Infof("[sign] signing %s", filepath.Base(req.Binary))
 
 	start := time.Now()
-	passphraseDuration := time.Duration(0)
 
-	err := SignBinary(req.Binary, req.SigningKey, req.SigningChain, req.Passphrase, &passphraseDuration)
+	passphraseDuration, err := signing.Sign(signing.Options{
+		Path:          req.Binary,
+		SigningKey:    req.SigningKey,
+		SigningChains: req.SigningChains,
+		Passphrase:    req.Passphrase,
+		UserAgent:     "builder/" + Version,
+	})
+
 	if err != nil {
 		return err
 	}
@@ -77,7 +84,7 @@ func parseSignRequest(args []string) (*SignRequest, error) {
 				return nil, err
 			}
 
-			req.SigningChain = value
+			req.SigningChains = append(req.SigningChains, value)
 			i = next
 		case "--passphrase":
 			value, next, err := parseSignOptionValue(args, i, lower)
@@ -97,7 +104,7 @@ func parseSignRequest(args []string) (*SignRequest, error) {
 				case "--sign":
 					req.SigningKey = value
 				case "--sign-chain":
-					req.SigningChain = value
+					req.SigningChains = append(req.SigningChains, value)
 				case "--passphrase":
 					req.Passphrase = value
 				default:
