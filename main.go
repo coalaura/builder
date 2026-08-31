@@ -42,6 +42,7 @@ func NewCLI() *cli.Command {
 			NewSubcommand("run", "run a project", []string{"go", "js", "php"}, false),
 			NewSubcommand("test", "test a project", []string{"go", "js"}, false),
 			NewSubcommand("bench", "benchmark a project", []string{"go", "js"}, false),
+			NewSignSubcommand(),
 		},
 	}
 }
@@ -64,7 +65,7 @@ func NewSubcommand(name, usage string, languages []string, allowOS bool) *cli.Co
 	)
 
 	if name == "build" {
-		parts = append(parts, "[--out name]", "[--sign key-file]", "[--sign-chain file-or-url]")
+		parts = append(parts, "[--out name]", "[--sign key-file]", "[--sign-chain file-or-url]", "[--passphrase value]")
 	}
 
 	if name == "build" || name == "run" {

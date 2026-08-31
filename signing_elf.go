@@ -19,8 +19,8 @@ const (
 	linuxModuleSignatureMarker       = "~Module signature appended~\n"
 )
 
-func SignLinuxBinary(path, keyPath, chainSource string, passphraseDuration *time.Duration) error {
-	certificate, verifiedChain, promptDuration, err := prepareSigningCertificate(keyPath, chainSource)
+func SignLinuxBinary(path, keyPath, chainSource, passphrase string, passphraseDuration *time.Duration) error {
+	certificate, verifiedChain, promptDuration, err := prepareSigningCertificate(keyPath, chainSource, passphrase)
 	if err != nil {
 		return err
 	}

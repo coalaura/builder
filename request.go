@@ -17,6 +17,7 @@ type Request struct {
 	Output       string
 	SigningKey   string
 	SigningChain string
+	Passphrase   string
 	CGO          bool
 	Dynamic      bool
 	Compatible   bool
@@ -126,6 +127,22 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 			continue
 		}
 
+		if lower == "--passphrase" {
+			if command != "build" {
+				return nil, fmt.Errorf("unknown argument for %s: %s", command, arg)
+			}
+
+			if i+1 >= len(args) || args[i+1] == "--" {
+				return nil, fmt.Errorf("%s requires a value", lower)
+			}
+
+			i++
+
+			req.Passphrase = args[i]
+
+			continue
+		}
+
 		if strings.HasPrefix(lower, "--package=") || strings.HasPrefix(lower, "--pkg=") {
 			_, req.Package, _ = strings.Cut(arg, "=")
 			if req.Package == "" {
@@ -169,6 +186,19 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 			_, req.SigningChain, _ = strings.Cut(arg, "=")
 			if req.SigningChain == "" {
 				return nil, fmt.Errorf("--sign-chain requires a value")
+			}
+
+			continue
+		}
+
+		if strings.HasPrefix(lower, "--passphrase=") {
+			if command != "build" {
+				return nil, fmt.Errorf("unknown argument for %s: %s", command, arg)
+			}
+
+			_, req.Passphrase, _ = strings.Cut(arg, "=")
+			if req.Passphrase == "" {
+				return nil, fmt.Errorf("--passphrase requires a value")
 			}
 
 			continue
@@ -281,6 +311,10 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 
 	if req.SigningChain != "" && req.SigningKey == "" {
 		return nil, fmt.Errorf("--sign-chain requires --sign")
+	}
+
+	if req.Passphrase != "" && req.SigningKey == "" {
+		return nil, fmt.Errorf("--passphrase requires --sign")
 	}
 
 	return req, nil

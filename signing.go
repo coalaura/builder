@@ -5,6 +5,8 @@ import (
 	"context"
 	"crypto"
 	"crypto/x509"
+	"debug/macho"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"net/http"
@@ -29,6 +31,13 @@ const (
 	maxTimestampSize     = 4 << 20
 )
 
+const (
+	binaryFormatUnknown = iota
+	binaryFormatWindows
+	binaryFormatDarwin
+	binaryFormatLinux
+)
+
 type EmptyFirstPasswordPrompt struct {
 	prompted bool
 	prompt   passprompt.PasswordGetter
@@ -37,6 +46,11 @@ type EmptyFirstPasswordPrompt struct {
 type timedPasswordPrompt struct {
 	prompt   passprompt.PasswordGetter
 	duration time.Duration
+}
+
+type suppliedPasswordPrompt struct {
+	password string
+	used     bool
 }
 
 type RFC3161Timestamper struct {
@@ -71,6 +85,16 @@ func (prompt *timedPasswordPrompt) GetPasswd(message string) (string, error) {
 	prompt.duration += time.Since(start)
 
 	return password, err
+}
+
+func (prompt *suppliedPasswordPrompt) GetPasswd(string) (string, error) {
+	if prompt.used {
+		return "", fmt.Errorf("supplied passphrase was rejected")
+	}
+
+	prompt.used = true
+
+	return prompt.password, nil
 }
 
 func (timestamper *RFC3161Timestamper) Timestamp(ctx context.Context, request *pkcs9.Request) (*pkcs7.ContentInfoSignedData, error) {
@@ -117,8 +141,26 @@ func (timestamper *RFC3161Timestamper) Timestamp(ctx context.Context, request *p
 	return token, nil
 }
 
-func SignWindowsBinary(path, keyPath, chainSource string, passphraseDuration *time.Duration) error {
-	certificate, verifiedChain, promptDuration, err := prepareSigningCertificate(keyPath, chainSource)
+func SignBinary(path, keyPath, chainSource, passphrase string, passphraseDuration *time.Duration) error {
+	format, err := detectBinaryFormat(path)
+	if err != nil {
+		return err
+	}
+
+	switch format {
+	case binaryFormatWindows:
+		return SignWindowsBinary(path, keyPath, chainSource, passphrase, passphraseDuration)
+	case binaryFormatDarwin:
+		return SignDarwinBinary(path, keyPath, chainSource, passphrase, passphraseDuration)
+	case binaryFormatLinux:
+		return SignLinuxBinary(path, keyPath, chainSource, passphrase, passphraseDuration)
+	}
+
+	return fmt.Errorf("binary format is not supported")
+}
+
+func SignWindowsBinary(path, keyPath, chainSource, passphrase string, passphraseDuration *time.Duration) error {
+	certificate, verifiedChain, promptDuration, err := prepareSigningCertificate(keyPath, chainSource, passphrase)
 	if err != nil {
 		return err
 	}
@@ -175,8 +217,8 @@ func SignWindowsBinary(path, keyPath, chainSource string, passphraseDuration *ti
 	return nil
 }
 
-func SignDarwinBinary(path, keyPath, chainSource string, passphraseDuration *time.Duration) error {
-	certificate, verifiedChain, promptDuration, err := prepareSigningCertificate(keyPath, chainSource)
+func SignDarwinBinary(path, keyPath, chainSource, passphrase string, passphraseDuration *time.Duration) error {
+	certificate, verifiedChain, promptDuration, err := prepareSigningCertificate(keyPath, chainSource, passphrase)
 	if err != nil {
 		return err
 	}
@@ -231,34 +273,73 @@ func SignDarwinBinary(path, keyPath, chainSource string, passphraseDuration *tim
 	return nil
 }
 
-func prepareSigningCertificate(keyPath, chainSource string) (*certloader.Certificate, []*x509.Certificate, time.Duration, error) {
+func prepareSigningCertificate(keyPath, chainSource, passphrase string) (*certloader.Certificate, []*x509.Certificate, time.Duration, error) {
 	keyData, err := os.ReadFile(keyPath)
 	if err != nil {
 		return nil, nil, 0, fmt.Errorf("read signing key: %w", err)
 	}
 
-	prompt := &timedPasswordPrompt{prompt: passprompt.PasswordPrompt{}}
+	interactivePrompt := &timedPasswordPrompt{prompt: passprompt.PasswordPrompt{}}
+	var prompt passprompt.PasswordGetter = interactivePrompt
+
+	if passphrase != "" {
+		prompt = &suppliedPasswordPrompt{password: passphrase}
+	}
 
 	certificate, err := loadSigningCertificate(keyData, prompt)
 	if err != nil {
-		return nil, nil, prompt.duration, fmt.Errorf("load signing key: %w", err)
+		return nil, nil, interactivePrompt.duration, fmt.Errorf("load signing key: %w", err)
 	}
 
 	certificate.Timestamper = signingTimestamper
 
 	chainCertificates, err := loadSigningChain(context.Background(), chainSource, signingChainClient)
 	if err != nil {
-		return nil, nil, prompt.duration, fmt.Errorf("load signing chain: %w", err)
+		return nil, nil, interactivePrompt.duration, fmt.Errorf("load signing chain: %w", err)
 	}
 
 	verifiedChain, err := verifySigningChain(certificate, chainCertificates, time.Now())
 	if err != nil {
-		return nil, nil, prompt.duration, fmt.Errorf("verify signing chain: %w", err)
+		return nil, nil, interactivePrompt.duration, fmt.Errorf("verify signing chain: %w", err)
 	}
 
 	certificate.Certificates = verifiedChain
 
-	return certificate, verifiedChain, prompt.duration, nil
+	return certificate, verifiedChain, interactivePrompt.duration, nil
+}
+
+func detectBinaryFormat(path string) (int, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return binaryFormatUnknown, fmt.Errorf("open binary for format detection: %w", err)
+	}
+
+	defer file.Close()
+
+	var header [4]byte
+
+	_, err = io.ReadFull(file, header[:])
+	if err != nil {
+		return binaryFormatUnknown, fmt.Errorf("read binary format: %w", err)
+	}
+
+	if header[0] == 'M' && header[1] == 'Z' {
+		return binaryFormatWindows, nil
+	}
+
+	if bytes.Equal(header[:], []byte{0x7f, 'E', 'L', 'F'}) {
+		return binaryFormatLinux, nil
+	}
+
+	bigEndianMagic := binary.BigEndian.Uint32(header[:])
+	littleEndianMagic := binary.LittleEndian.Uint32(header[:])
+	machMagic := macho.Magic32 &^ 1
+
+	if bigEndianMagic&^1 == machMagic || littleEndianMagic&^1 == machMagic {
+		return binaryFormatDarwin, nil
+	}
+
+	return binaryFormatUnknown, fmt.Errorf("binary format is not supported")
 }
 
 func loadSigningChain(ctx context.Context, source string, client *http.Client) ([]*x509.Certificate, error) {

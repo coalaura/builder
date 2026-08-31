@@ -91,14 +91,7 @@ func ExecuteBuild(req *Request) error {
 			start = time.Now()
 			passphraseDuration := time.Duration(0)
 
-			switch req.TargetOS {
-			case "darwin":
-				err = SignDarwinBinary(output, req.SigningKey, req.SigningChain, &passphraseDuration)
-			case "linux":
-				err = SignLinuxBinary(output, req.SigningKey, req.SigningChain, &passphraseDuration)
-			case "windows":
-				err = SignWindowsBinary(output, req.SigningKey, req.SigningChain, &passphraseDuration)
-			}
+			err = SignBinary(output, req.SigningKey, req.SigningChain, req.Passphrase, &passphraseDuration)
 
 			if err != nil {
 				return err
