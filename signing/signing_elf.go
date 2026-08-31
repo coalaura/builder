@@ -2,6 +2,7 @@ package signing
 
 import (
 	"bytes"
+	"context"
 	"crypto"
 	"crypto/x509"
 	"encoding/binary"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/sassoftware/relic/v8/lib/pkcs7"
+	"github.com/sassoftware/relic/v8/lib/pkcs9"
 )
 
 const (
@@ -55,6 +57,13 @@ func signLinuxBinary(options Options, passphraseDuration *time.Duration) error {
 		return fmt.Errorf("sign Linux binary: %w", err)
 	}
 
+	timestamper := newLinuxTimestamper(options.UserAgent)
+
+	err = timestampLinuxSignature(context.Background(), signedData, timestamper)
+	if err != nil {
+		return fmt.Errorf("timestamp Linux signature: %w", err)
+	}
+
 	signature, err := signedData.Marshal()
 	if err != nil {
 		return fmt.Errorf("encode Linux signature: %w", err)
@@ -92,11 +101,7 @@ func signLinuxBinary(options Options, passphraseDuration *time.Duration) error {
 		return fmt.Errorf("close signed Linux binary: %w", closeErr)
 	}
 
-	roots := x509.NewCertPool()
-
-	roots.AddCert(verifiedChain[len(verifiedChain)-1])
-
-	err = verifyLinuxBinary(options.Path, roots)
+	err = verifyLinuxBinary(options.Path, verifiedChain[len(verifiedChain)-1])
 	if err != nil {
 		return fmt.Errorf("verify Linux signature: %w", err)
 	}
@@ -104,7 +109,32 @@ func signLinuxBinary(options Options, passphraseDuration *time.Duration) error {
 	return nil
 }
 
-func verifyLinuxBinary(path string, roots *x509.CertPool) error {
+func timestampLinuxSignature(ctx context.Context, signedData *pkcs7.ContentInfoSignedData, timestamper pkcs9.Timestamper) error {
+	if len(signedData.Content.SignerInfos) != 1 {
+		return fmt.Errorf("CMS signature has %d signers", len(signedData.Content.SignerInfos))
+	}
+
+	signerInfo := &signedData.Content.SignerInfos[0]
+
+	request := &pkcs9.Request{
+		EncryptedDigest: signerInfo.EncryptedDigest,
+		Hash:            crypto.SHA256,
+	}
+
+	token, err := timestamper.Timestamp(ctx, request)
+	if err != nil {
+		return err
+	}
+
+	err = pkcs9.AddStampToSignedData(signerInfo, *token)
+	if err != nil {
+		return fmt.Errorf("attach RFC 3161 timestamp: %w", err)
+	}
+
+	return nil
+}
+
+func verifyLinuxBinary(path string, signingRoot *x509.Certificate) error {
 	contents, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("read signed Linux binary: %w", err)
@@ -138,9 +168,14 @@ func verifyLinuxBinary(path string, roots *x509.CertPool) error {
 		return fmt.Errorf("verify CMS signature: %w", err)
 	}
 
-	err = verified.VerifyChain(roots, nil, x509.ExtKeyUsageCodeSigning, time.Now())
+	timestamped, err := pkcs9.VerifyOptionalTimestamp(verified)
 	if err != nil {
-		return fmt.Errorf("verify embedded signing chain: %w", err)
+		return fmt.Errorf("verify RFC 3161 timestamp: %w", err)
+	}
+
+	err = verifyTimestampedSignature(&timestamped, signingRoot)
+	if err != nil {
+		return err
 	}
 
 	return nil

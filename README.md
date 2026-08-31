@@ -65,7 +65,7 @@ The generation options are mutually exclusive.
 - `--sign-chain`: add certificates from a local file or HTTPS URL; repeat for multiple sources
 - `--passphrase`: supply the key passphrase without an interactive prompt
 
-Builder supports Authenticode signatures for Windows, thin Mach-O signatures for Darwin and appended CMS/PKCS#7 signatures for Linux. Windows signatures use DigiCert timestamps, while Darwin signatures use Apple's timestamp service. The standalone `builder sign` command detects the binary format automatically.
+Builder supports Authenticode signatures for Windows, thin Mach-O signatures for Darwin and appended CMS/PKCS#7 signatures for Linux. All formats use DigiCert RFC 3161 timestamps. The standalone `builder sign` command detects the binary format automatically.
 
 Signing chains are verified against the system trust store. Use one or more `--sign-chain` options to provide missing intermediate or root certificates. Encrypted keys prompt for their passphrase unless `--passphrase` is provided.
 

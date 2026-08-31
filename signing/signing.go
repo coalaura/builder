@@ -24,7 +24,6 @@ import (
 
 const (
 	digiCertTimestampURL = "http://timestamp.digicert.com"
-	appleTimestampURL    = "http://timestamp.apple.com/ts01"
 	maxSigningChainSize  = 4 << 20
 	maxTimestampSize     = 4 << 20
 )
@@ -181,7 +180,15 @@ func newWindowsTimestamper(userAgent string) pkcs9.Timestamper {
 func newDarwinTimestamper(userAgent string) pkcs9.Timestamper {
 	return &rfc3161Timestamper{
 		client:    timestampClient,
-		url:       appleTimestampURL,
+		url:       digiCertTimestampURL,
+		userAgent: userAgent,
+	}
+}
+
+func newLinuxTimestamper(userAgent string) pkcs9.Timestamper {
+	return &rfc3161Timestamper{
+		client:    timestampClient,
+		url:       digiCertTimestampURL,
 		userAgent: userAgent,
 	}
 }
