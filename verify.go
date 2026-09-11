@@ -21,7 +21,7 @@ func NewVerifySubcommand() *cli.Command {
 	return &cli.Command{
 		Name:            "verify",
 		Usage:           "verify a signed binary",
-		ArgsUsage:       "binary --cert file-or-url [--cert-chain file-or-url]...",
+		ArgsUsage:       "binary [--cert file-or-url] [--cert-chain file-or-url]...",
 		SkipFlagParsing: true,
 		Action: func(_ context.Context, cmd *cli.Command) error {
 			args := cmd.Args().Slice()
@@ -117,10 +117,6 @@ func parseVerifyRequest(args []string) (*VerifyRequest, error) {
 
 	if req.Binary == "" {
 		return nil, fmt.Errorf("verify requires a binary")
-	}
-
-	if req.Certificate == "" {
-		return nil, fmt.Errorf("verify requires --cert")
 	}
 
 	return req, nil

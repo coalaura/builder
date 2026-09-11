@@ -32,7 +32,7 @@ builder run [language] [options] [go flags...] [target] [-- arguments...]
 builder test [language] [options] [go flags...] [target] [-- arguments...]
 builder bench [language] [options] [go flags...] [target] [-- arguments...]
 builder sign binary --sign key-file [--sign-chain file-or-url]... [--passphrase value]
-builder verify binary --cert file-or-url [--cert-chain file-or-url]...
+builder verify binary [--cert file-or-url] [--cert-chain file-or-url]...
 ```
 
 Builder attempts to detect the project language when omitted. Only `build` accepts an operating system target.
@@ -79,12 +79,13 @@ builder sign example.exe --sign certificate.pfx --sign-chain https://example.com
 
 ### Verifying
 
-- `--cert`: verify against a certificate from a local file or HTTPS URL
+- `--cert`: require the signing certificate to match a certificate from a local file or HTTPS URL
 - `--cert-chain`: add certificates from a local file or HTTPS URL; repeat for multiple sources
 
-The standalone `builder verify` command detects the binary format and checks that the file was signed with the given certificate using a valid RFC 3161 timestamp. Missing intermediate or root certificates can be provided with `--cert-chain`; chains are otherwise verified against the system trust store.
+The standalone `builder verify` command detects the binary format and checks for a valid RFC 3161 timestamp. With `--cert`, the signing certificate must match the supplied certificate. Without `--cert`, the signature is verified against the system trust store. Missing intermediate or root certificates can be provided with `--cert-chain`.
 
 ```sh
+builder verify example.exe
 builder verify example.exe --cert certificate.pem --cert-chain https://example.com/root.pem
 ```
 

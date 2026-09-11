@@ -176,8 +176,9 @@ func Sign(options Options) (time.Duration, error) {
 	return passphraseDuration, err
 }
 
-// Verify detects the binary format, verifies the file signature, and checks
-// that the binary was signed by one of the supplied certificates.
+// Verify detects the binary format and verifies the file signature. When a
+// certificate is supplied, the signing certificate must match it; otherwise
+// the signature is verified against the system trust store alone.
 func Verify(options VerifyOptions) error {
 	format, err := detectBinaryFormat(options.Path)
 	if err != nil {
@@ -187,10 +188,6 @@ func Verify(options VerifyOptions) error {
 	certificates, err := loadSigningChain(context.Background(), options.Certificate, signingChainClient)
 	if err != nil {
 		return fmt.Errorf("load certificate: %w", err)
-	}
-
-	if len(certificates) == 0 {
-		return fmt.Errorf("load certificate: no certificates found")
 	}
 
 	chainCertificates, err := loadSigningChains(context.Background(), options.CertificateChains, signingChainClient)
@@ -283,7 +280,7 @@ func verifyTimestampedSignature(signature *pkcs9.TimestampedSignature, certifica
 		return fmt.Errorf("signing certificate is missing")
 	}
 
-	if !matchesCertificate(leaf, certificates) {
+	if len(certificates) > 0 && !matchesCertificate(leaf, certificates) {
 		return fmt.Errorf("signing certificate does not match the supplied certificate")
 	}
 
