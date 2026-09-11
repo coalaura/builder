@@ -101,7 +101,7 @@ func signLinuxBinary(options Options, passphraseDuration *time.Duration) error {
 		return fmt.Errorf("close signed Linux binary: %w", closeErr)
 	}
 
-	err = verifyLinuxBinary(options.Path, verifiedChain[len(verifiedChain)-1])
+	err = verifyLinuxBinary(options.Path, verifiedChain, nil)
 	if err != nil {
 		return fmt.Errorf("verify Linux signature: %w", err)
 	}
@@ -134,7 +134,7 @@ func timestampLinuxSignature(ctx context.Context, signedData *pkcs7.ContentInfoS
 	return nil
 }
 
-func verifyLinuxBinary(path string, signingRoot *x509.Certificate) error {
+func verifyLinuxBinary(path string, certificates, chain []*x509.Certificate) error {
 	contents, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("read signed Linux binary: %w", err)
@@ -173,7 +173,7 @@ func verifyLinuxBinary(path string, signingRoot *x509.Certificate) error {
 		return fmt.Errorf("verify RFC 3161 timestamp: %w", err)
 	}
 
-	err = verifyTimestampedSignature(&timestamped, signingRoot)
+	err = verifyTimestampedSignature(&timestamped, certificates, chain)
 	if err != nil {
 		return err
 	}

@@ -65,6 +65,13 @@ type Options struct {
 	UserAgent     string
 }
 
+// VerifyOptions describes a binary signature verification operation.
+type VerifyOptions struct {
+	Path              string
+	Certificate       string
+	CertificateChains []string
+}
+
 var (
 	timestampClient    = &http.Client{Timeout: 30 * time.Second}
 	signingChainClient = &http.Client{Timeout: 30 * time.Second}
@@ -169,6 +176,40 @@ func Sign(options Options) (time.Duration, error) {
 	return passphraseDuration, err
 }
 
+// Verify detects the binary format, verifies the file signature, and checks
+// that the binary was signed by one of the supplied certificates.
+func Verify(options VerifyOptions) error {
+	format, err := detectBinaryFormat(options.Path)
+	if err != nil {
+		return err
+	}
+
+	certificates, err := loadSigningChain(context.Background(), options.Certificate, signingChainClient)
+	if err != nil {
+		return fmt.Errorf("load certificate: %w", err)
+	}
+
+	if len(certificates) == 0 {
+		return fmt.Errorf("load certificate: no certificates found")
+	}
+
+	chainCertificates, err := loadSigningChains(context.Background(), options.CertificateChains, signingChainClient)
+	if err != nil {
+		return fmt.Errorf("load certificate chain: %w", err)
+	}
+
+	switch format {
+	case binaryFormatWindows:
+		return verifyWindowsBinary(options.Path, certificates, chainCertificates)
+	case binaryFormatDarwin:
+		return verifyDarwinBinary(options.Path, certificates, chainCertificates)
+	case binaryFormatLinux:
+		return verifyLinuxBinary(options.Path, certificates, chainCertificates)
+	default:
+		return fmt.Errorf("binary format is not supported")
+	}
+}
+
 func newWindowsTimestamper(userAgent string) pkcs9.Timestamper {
 	return &rfc3161Timestamper{
 		client:    timestampClient,
@@ -200,6 +241,7 @@ func prepareSigningCertificate(keyPath string, chainSources []string, passphrase
 	}
 
 	interactivePrompt := &timedPasswordPrompt{prompt: passprompt.PasswordPrompt{}}
+
 	var prompt passprompt.PasswordGetter = interactivePrompt
 
 	if passphrase != "" {
@@ -226,7 +268,7 @@ func prepareSigningCertificate(keyPath string, chainSources []string, passphrase
 	return certificate, verifiedChain, interactivePrompt.duration, nil
 }
 
-func verifyTimestampedSignature(signature *pkcs9.TimestampedSignature, signingRoot *x509.Certificate) error {
+func verifyTimestampedSignature(signature *pkcs9.TimestampedSignature, certificates, chain []*x509.Certificate) error {
 	if signature.CounterSignature == nil {
 		return fmt.Errorf("secure timestamp is missing")
 	}
@@ -236,15 +278,59 @@ func verifyTimestampedSignature(signature *pkcs9.TimestampedSignature, signingRo
 		return fmt.Errorf("verify timestamp chain: %w", err)
 	}
 
-	roots := x509.NewCertPool()
-	roots.AddCert(signingRoot)
+	leaf := signature.Certificate
+	if leaf == nil {
+		return fmt.Errorf("signing certificate is missing")
+	}
 
-	err = signature.Signature.VerifyChain(roots, nil, x509.ExtKeyUsageCodeSigning, signature.CounterSignature.SigningTime)
+	if !matchesCertificate(leaf, certificates) {
+		return fmt.Errorf("signing certificate does not match the supplied certificate")
+	}
+
+	roots, intermediates := verificationPools(certificates, chain)
+
+	err = signature.Signature.VerifyChain(roots, intermediates, x509.ExtKeyUsageCodeSigning, signature.CounterSignature.SigningTime)
 	if err != nil {
 		return fmt.Errorf("verify embedded signing chain: %w", err)
 	}
 
 	return nil
+}
+
+func verificationPools(certificates, chain []*x509.Certificate) (*x509.CertPool, []*x509.Certificate) {
+	roots, err := x509.SystemCertPool()
+	if err != nil {
+		roots = x509.NewCertPool()
+	}
+
+	members := make([]*x509.Certificate, 0, len(certificates)+len(chain))
+
+	members = append(members, certificates...)
+	members = append(members, chain...)
+
+	intermediates := make([]*x509.Certificate, 0, len(members))
+
+	for _, member := range members {
+		if bytes.Equal(member.RawIssuer, member.RawSubject) {
+			roots.AddCert(member)
+
+			continue
+		}
+
+		intermediates = append(intermediates, member)
+	}
+
+	return roots, intermediates
+}
+
+func matchesCertificate(certificate *x509.Certificate, certificates []*x509.Certificate) bool {
+	for _, candidate := range certificates {
+		if bytes.Equal(candidate.Raw, certificate.Raw) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func detectBinaryFormat(path string) (int, error) {

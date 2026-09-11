@@ -43,6 +43,7 @@ func NewCLI() *cli.Command {
 			NewSubcommand("test", "test a project", []string{"go", "js"}, false),
 			NewSubcommand("bench", "benchmark a project", []string{"go", "js"}, false),
 			NewSignSubcommand(),
+			NewVerifySubcommand(),
 		},
 	}
 }

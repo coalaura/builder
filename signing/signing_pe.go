@@ -3,6 +3,7 @@ package signing
 import (
 	"context"
 	"crypto"
+	"crypto/x509"
 	"fmt"
 	"os"
 	"time"
@@ -44,6 +45,17 @@ func signWindowsBinary(options Options, passphraseDuration *time.Duration) error
 		return fmt.Errorf("write Windows signature: %w", err)
 	}
 
+	return verifyWindowsBinary(options.Path, verifiedChain, nil)
+}
+
+func verifyWindowsBinary(path string, certificates, chain []*x509.Certificate) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("verify Windows signature: %w", err)
+	}
+
+	defer file.Close()
+
 	signatures, err := authenticode.VerifyPE(file, false)
 	if err != nil {
 		return fmt.Errorf("verify Windows signature: %w", err)
@@ -53,7 +65,7 @@ func signWindowsBinary(options Options, passphraseDuration *time.Duration) error
 		return fmt.Errorf("verify Windows signature: found %d signatures", len(signatures))
 	}
 
-	err = verifyTimestampedSignature(&signatures[0].TimestampedSignature, verifiedChain[len(verifiedChain)-1])
+	err = verifyTimestampedSignature(&signatures[0].TimestampedSignature, certificates, chain)
 	if err != nil {
 		return fmt.Errorf("verify Windows signature: %w", err)
 	}
