@@ -35,6 +35,12 @@ const (
 	binaryFormatLinux
 )
 
+const (
+	trustSystem     = "system trusted"
+	trustSelfSigned = "self-signed"
+	trustUntrusted  = "untrusted"
+)
+
 type emptyFirstPasswordPrompt struct {
 	prompted bool
 	prompt   passprompt.PasswordGetter
@@ -72,9 +78,12 @@ type VerifyOptions struct {
 	CertificateChains []string
 }
 
-// Verification describes a verified binary signature.
+// Verification describes a verified binary signature. Trust holds, for each
+// certificate in Chain, its trust level: "system trusted", "self-signed" or
+// "untrusted".
 type Verification struct {
 	Chain              []*x509.Certificate
+	Trust              []string
 	Timestamp          time.Time
 	TimestampAuthority *x509.Certificate
 }
@@ -295,19 +304,22 @@ func verifyTimestampedSignature(signature *pkcs9.TimestampedSignature, certifica
 
 	roots, intermediates := verificationPools(certificates, chain)
 
-	err = signature.Signature.VerifyChain(roots, intermediates, x509.ExtKeyUsageCodeSigning, signature.CounterSignature.SigningTime)
+	signingTime := signature.CounterSignature.SigningTime
+
+	err = signature.Signature.VerifyChain(roots, intermediates, x509.ExtKeyUsageCodeSigning, signingTime)
 	if err != nil {
 		return nil, fmt.Errorf("verify embedded signing chain: %w", err)
 	}
 
-	verified, err := verifiedCertificateChain(leaf, roots, intermediates, signature.Intermediates, signature.CounterSignature.SigningTime)
+	verified, err := verifiedCertificateChain(leaf, roots, intermediates, signature.Intermediates, signingTime)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Verification{
 		Chain:              verified,
-		Timestamp:          signature.CounterSignature.SigningTime,
+		Trust:              certificateTrustLevels(verified, signingTime),
+		Timestamp:          signingTime,
 		TimestampAuthority: signature.CounterSignature.Certificate,
 	}, nil
 }
@@ -370,6 +382,41 @@ func matchesCertificate(certificate *x509.Certificate, certificates []*x509.Cert
 	}
 
 	return false
+}
+
+func certificateTrustLevels(chain []*x509.Certificate, currentTime time.Time) []string {
+	systemRoots, err := x509.SystemCertPool()
+	if err != nil {
+		systemRoots = x509.NewCertPool()
+	}
+
+	levels := make([]string, len(chain))
+
+	for index, certificate := range chain {
+		intermediates := x509.NewCertPool()
+
+		for position := index + 1; position < len(chain)-1; position++ {
+			intermediates.AddCert(chain[position])
+		}
+
+		_, err := certificate.Verify(x509.VerifyOptions{
+			Roots:         systemRoots,
+			Intermediates: intermediates,
+			CurrentTime:   currentTime,
+			KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
+		})
+
+		switch {
+		case err == nil:
+			levels[index] = trustSystem
+		case bytes.Equal(certificate.RawIssuer, certificate.RawSubject):
+			levels[index] = trustSelfSigned
+		default:
+			levels[index] = trustUntrusted
+		}
+	}
+
+	return levels
 }
 
 func detectBinaryFormat(path string) (int, error) {

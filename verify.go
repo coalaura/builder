@@ -55,25 +55,25 @@ func ExecuteVerify(req *VerifyRequest) error {
 		return err
 	}
 
-	printCertificateChain(verification.Chain)
+	printCertificateChain(verification)
 	printTimestamp(verification.Timestamp, verification.TimestampAuthority)
 	printDuration(start, "verified")
 
 	return nil
 }
 
-func printCertificateChain(chain []*x509.Certificate) {
-	for index, certificate := range chain {
+func printCertificateChain(verification *signing.Verification) {
+	for index, certificate := range verification.Chain {
 		role := "intermediate"
 
 		switch index {
 		case 0:
 			role = "leaf"
-		case len(chain) - 1:
+		case len(verification.Chain) - 1:
 			role = "root"
 		}
 
-		Subf("%s: %s", role, certificate.Subject.String())
+		Subf("%s: %s (%s)", role, certificate.Subject.String(), verification.Trust[index])
 	}
 }
 
