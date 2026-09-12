@@ -35,10 +35,11 @@ const (
 	binaryFormatLinux
 )
 
+// Certificate trust levels reported in Verification.Trust.
 const (
-	trustSystem     = "system trusted"
-	trustSelfSigned = "self-signed"
-	trustUntrusted  = "untrusted"
+	TrustSystem     = "system trusted"
+	TrustSelfSigned = "self-signed"
+	TrustUntrusted  = "untrusted"
 )
 
 type emptyFirstPasswordPrompt struct {
@@ -408,11 +409,11 @@ func certificateTrustLevels(chain []*x509.Certificate, currentTime time.Time) []
 
 		switch {
 		case err == nil:
-			levels[index] = trustSystem
+			levels[index] = TrustSystem
 		case bytes.Equal(certificate.RawIssuer, certificate.RawSubject):
-			levels[index] = trustSelfSigned
+			levels[index] = TrustSelfSigned
 		default:
-			levels[index] = trustUntrusted
+			levels[index] = TrustUntrusted
 		}
 	}
 

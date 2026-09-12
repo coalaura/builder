@@ -63,6 +63,8 @@ func ExecuteVerify(req *VerifyRequest) error {
 }
 
 func printCertificateChain(verification *signing.Verification) {
+	width := len("intermediate")
+
 	for index, certificate := range verification.Chain {
 		role := "intermediate"
 
@@ -73,18 +75,37 @@ func printCertificateChain(verification *signing.Verification) {
 			role = "root"
 		}
 
-		Subf("%s: %s (%s)", role, certificate.Subject.String(), verification.Trust[index])
+		Subf("%-*s  %s %s", width, role, certificate.Subject.String(), trustBadge(verification.Trust[index]))
 	}
 }
 
+func trustBadge(trust string) string {
+	color := "\033[90m"
+
+	switch trust {
+	case signing.TrustSystem:
+		color = "\033[32m"
+	case signing.TrustSelfSigned:
+		color = "\033[33m"
+	case signing.TrustUntrusted:
+		color = "\033[31m"
+	}
+
+	return color + "(" + trust + ")\033[90m"
+}
+
 func printTimestamp(timestamp time.Time, authority *x509.Certificate) {
+	width := len("intermediate")
+
+	formatted := timestamp.UTC().Format("2006-01-02 15:04:05 MST")
+
 	if authority == nil {
-		Subf("timestamp: %s", timestamp.UTC().Format(time.RFC3339))
+		Subf("%-*s  %s", width, "timestamp", formatted)
 
 		return
 	}
 
-	Subf("timestamp: %s (%s)", timestamp.UTC().Format(time.RFC3339), authority.Subject.String())
+	Subf("%-*s  %s by %s", width, "timestamp", formatted, authority.Subject.String())
 }
 
 func parseVerifyRequest(args []string) (*VerifyRequest, error) {
