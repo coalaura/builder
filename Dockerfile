@@ -26,7 +26,7 @@ RUN apk add --no-cache curl xz \
  && rm -rf /opt/zig/doc /tmp/zig.tar.xz \
  && /opt/zig/zig version
 
-FROM alpine:3.24
+FROM golang:1.27.1-alpine
 
 COPY --from=build /out/builder /usr/local/bin/builder
 COPY --from=build /opt/zig /opt/zig
