@@ -66,28 +66,30 @@ func signDarwinBinary(options Options, passphraseDuration *time.Duration) error 
 		return fmt.Errorf("write Darwin signature: %w", err)
 	}
 
-	return verifyDarwinBinary(options.Path, verifiedChain, nil)
+	_, err = verifyDarwinBinary(options.Path, verifiedChain, nil)
+
+	return err
 }
 
-func verifyDarwinBinary(path string, certificates, chain []*x509.Certificate) error {
+func verifyDarwinBinary(path string, certificates, chain []*x509.Certificate) ([]*x509.Certificate, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return fmt.Errorf("verify Darwin signature: %w", err)
+		return nil, fmt.Errorf("verify Darwin signature: %w", err)
 	}
 
 	defer file.Close()
 
 	signature, err := machos.Verify(file, nil, nil, false)
 	if err != nil {
-		return fmt.Errorf("verify Darwin signature: %w", err)
+		return nil, fmt.Errorf("verify Darwin signature: %w", err)
 	}
 
-	err = verifyTimestampedSignature(signature.Signature, certificates, chain)
+	verified, err := verifyTimestampedSignature(signature.Signature, certificates, chain)
 	if err != nil {
-		return fmt.Errorf("verify Darwin signature: %w", err)
+		return nil, fmt.Errorf("verify Darwin signature: %w", err)
 	}
 
-	return nil
+	return verified, nil
 }
 
 func darwinSigningIdentifier(root *x509.Certificate) string {

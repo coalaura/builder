@@ -101,7 +101,7 @@ func signLinuxBinary(options Options, passphraseDuration *time.Duration) error {
 		return fmt.Errorf("close signed Linux binary: %w", closeErr)
 	}
 
-	err = verifyLinuxBinary(options.Path, verifiedChain, nil)
+	_, err = verifyLinuxBinary(options.Path, verifiedChain, nil)
 	if err != nil {
 		return fmt.Errorf("verify Linux signature: %w", err)
 	}
@@ -134,51 +134,46 @@ func timestampLinuxSignature(ctx context.Context, signedData *pkcs7.ContentInfoS
 	return nil
 }
 
-func verifyLinuxBinary(path string, certificates, chain []*x509.Certificate) error {
+func verifyLinuxBinary(path string, certificates, chain []*x509.Certificate) ([]*x509.Certificate, error) {
 	contents, err := os.ReadFile(path)
 	if err != nil {
-		return fmt.Errorf("read signed Linux binary: %w", err)
+		return nil, fmt.Errorf("read signed Linux binary: %w", err)
 	}
 
 	unsigned, signature, err := parseLinuxModuleSignature(contents)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	signedData, err := pkcs7.Unmarshal(signature)
 	if err != nil {
-		return fmt.Errorf("parse CMS signature: %w", err)
+		return nil, fmt.Errorf("parse CMS signature: %w", err)
 	}
 
 	if !signedData.Content.ContentInfo.ContentType.Equal(pkcs7.OidData) {
-		return fmt.Errorf("cms signature has unexpected content type %s", signedData.Content.ContentInfo.ContentType.String())
+		return nil, fmt.Errorf("cms signature has unexpected content type %s", signedData.Content.ContentInfo.ContentType.String())
 	}
 
 	embedded, err := signedData.Content.ContentInfo.Bytes()
 	if err != nil {
-		return fmt.Errorf("parse CMS content: %w", err)
+		return nil, fmt.Errorf("parse CMS content: %w", err)
 	}
 
 	if embedded != nil {
-		return fmt.Errorf("cms signature is not detached")
+		return nil, fmt.Errorf("cms signature is not detached")
 	}
 
 	verified, err := signedData.Content.Verify(unsigned, false)
 	if err != nil {
-		return fmt.Errorf("verify CMS signature: %w", err)
+		return nil, fmt.Errorf("verify CMS signature: %w", err)
 	}
 
 	timestamped, err := pkcs9.VerifyOptionalTimestamp(verified)
 	if err != nil {
-		return fmt.Errorf("verify RFC 3161 timestamp: %w", err)
+		return nil, fmt.Errorf("verify RFC 3161 timestamp: %w", err)
 	}
 
-	err = verifyTimestampedSignature(&timestamped, certificates, chain)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return verifyTimestampedSignature(&timestamped, certificates, chain)
 }
 
 func parseLinuxModuleSignature(contents []byte) ([]byte, []byte, error) {

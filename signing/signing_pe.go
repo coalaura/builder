@@ -45,30 +45,32 @@ func signWindowsBinary(options Options, passphraseDuration *time.Duration) error
 		return fmt.Errorf("write Windows signature: %w", err)
 	}
 
-	return verifyWindowsBinary(options.Path, verifiedChain, nil)
+	_, err = verifyWindowsBinary(options.Path, verifiedChain, nil)
+
+	return err
 }
 
-func verifyWindowsBinary(path string, certificates, chain []*x509.Certificate) error {
+func verifyWindowsBinary(path string, certificates, chain []*x509.Certificate) ([]*x509.Certificate, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return fmt.Errorf("verify Windows signature: %w", err)
+		return nil, fmt.Errorf("verify Windows signature: %w", err)
 	}
 
 	defer file.Close()
 
 	signatures, err := authenticode.VerifyPE(file, false)
 	if err != nil {
-		return fmt.Errorf("verify Windows signature: %w", err)
+		return nil, fmt.Errorf("verify Windows signature: %w", err)
 	}
 
 	if len(signatures) != 1 {
-		return fmt.Errorf("verify Windows signature: found %d signatures", len(signatures))
+		return nil, fmt.Errorf("verify Windows signature: found %d signatures", len(signatures))
 	}
 
-	err = verifyTimestampedSignature(&signatures[0].TimestampedSignature, certificates, chain)
+	verified, err := verifyTimestampedSignature(&signatures[0].TimestampedSignature, certificates, chain)
 	if err != nil {
-		return fmt.Errorf("verify Windows signature: %w", err)
+		return nil, fmt.Errorf("verify Windows signature: %w", err)
 	}
 
-	return nil
+	return verified, nil
 }

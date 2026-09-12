@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/x509"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -44,19 +45,34 @@ func ExecuteVerify(req *VerifyRequest) error {
 
 	start := time.Now()
 
-	err := signing.Verify(signing.VerifyOptions{
+	chain, err := signing.Verify(signing.VerifyOptions{
 		Path:              req.Binary,
 		Certificate:       req.Certificate,
 		CertificateChains: req.CertificateChains,
 	})
-
 	if err != nil {
 		return err
 	}
 
+	printCertificateChain(chain)
 	printDuration(start, "verified")
 
 	return nil
+}
+
+func printCertificateChain(chain []*x509.Certificate) {
+	for index, certificate := range chain {
+		role := "intermediate"
+
+		switch index {
+		case 0:
+			role = "leaf"
+		case len(chain) - 1:
+			role = "root"
+		}
+
+		Subf("%s: %s", role, certificate.Subject.String())
+	}
 }
 
 func parseVerifyRequest(args []string) (*VerifyRequest, error) {

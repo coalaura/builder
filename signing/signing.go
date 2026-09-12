@@ -178,21 +178,23 @@ func Sign(options Options) (time.Duration, error) {
 
 // Verify detects the binary format and verifies the file signature. When a
 // certificate is supplied, the signing certificate must match it; otherwise
-// the signature is verified against the system trust store alone.
-func Verify(options VerifyOptions) error {
+// the signature is verified against the system trust store alone. It returns
+// the verified certificate chain, ordered from the signing certificate to the
+// trust anchor.
+func Verify(options VerifyOptions) ([]*x509.Certificate, error) {
 	format, err := detectBinaryFormat(options.Path)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	certificates, err := loadSigningChain(context.Background(), options.Certificate, signingChainClient)
 	if err != nil {
-		return fmt.Errorf("load certificate: %w", err)
+		return nil, fmt.Errorf("load certificate: %w", err)
 	}
 
 	chainCertificates, err := loadSigningChains(context.Background(), options.CertificateChains, signingChainClient)
 	if err != nil {
-		return fmt.Errorf("load certificate chain: %w", err)
+		return nil, fmt.Errorf("load certificate chain: %w", err)
 	}
 
 	switch format {
@@ -203,7 +205,7 @@ func Verify(options VerifyOptions) error {
 	case binaryFormatLinux:
 		return verifyLinuxBinary(options.Path, certificates, chainCertificates)
 	default:
-		return fmt.Errorf("binary format is not supported")
+		return nil, fmt.Errorf("binary format is not supported")
 	}
 }
 
@@ -265,33 +267,57 @@ func prepareSigningCertificate(keyPath string, chainSources []string, passphrase
 	return certificate, verifiedChain, interactivePrompt.duration, nil
 }
 
-func verifyTimestampedSignature(signature *pkcs9.TimestampedSignature, certificates, chain []*x509.Certificate) error {
+func verifyTimestampedSignature(signature *pkcs9.TimestampedSignature, certificates, chain []*x509.Certificate) ([]*x509.Certificate, error) {
 	if signature.CounterSignature == nil {
-		return fmt.Errorf("secure timestamp is missing")
+		return nil, fmt.Errorf("secure timestamp is missing")
 	}
 
 	err := signature.CounterSignature.VerifyChain(nil, nil)
 	if err != nil {
-		return fmt.Errorf("verify timestamp chain: %w", err)
+		return nil, fmt.Errorf("verify timestamp chain: %w", err)
 	}
 
 	leaf := signature.Certificate
 	if leaf == nil {
-		return fmt.Errorf("signing certificate is missing")
+		return nil, fmt.Errorf("signing certificate is missing")
 	}
 
 	if len(certificates) > 0 && !matchesCertificate(leaf, certificates) {
-		return fmt.Errorf("signing certificate does not match the supplied certificate")
+		return nil, fmt.Errorf("signing certificate does not match the supplied certificate")
 	}
 
 	roots, intermediates := verificationPools(certificates, chain)
 
 	err = signature.Signature.VerifyChain(roots, intermediates, x509.ExtKeyUsageCodeSigning, signature.CounterSignature.SigningTime)
 	if err != nil {
-		return fmt.Errorf("verify embedded signing chain: %w", err)
+		return nil, fmt.Errorf("verify embedded signing chain: %w", err)
 	}
 
-	return nil
+	return verifiedCertificateChain(leaf, roots, intermediates, signature.Intermediates, signature.CounterSignature.SigningTime)
+}
+
+func verifiedCertificateChain(leaf *x509.Certificate, roots *x509.CertPool, intermediates, embedded []*x509.Certificate, currentTime time.Time) ([]*x509.Certificate, error) {
+	pool := x509.NewCertPool()
+
+	for _, certificate := range intermediates {
+		pool.AddCert(certificate)
+	}
+
+	for _, certificate := range embedded {
+		pool.AddCert(certificate)
+	}
+
+	chains, err := leaf.Verify(x509.VerifyOptions{
+		Roots:         roots,
+		Intermediates: pool,
+		CurrentTime:   currentTime,
+		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("build verified certificate chain: %w", err)
+	}
+
+	return chains[0], nil
 }
 
 func verificationPools(certificates, chain []*x509.Certificate) (*x509.CertPool, []*x509.Certificate) {
