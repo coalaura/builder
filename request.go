@@ -6,12 +6,15 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/coalaura/builder/goenv"
 )
 
 type Request struct {
 	Command       string
 	Language      string
 	TargetOS      string
+	TargetArch    string
 	Target        string
 	Package       string
 	Output        string
@@ -53,6 +56,7 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 		noMinifyRequested   bool
 		generateRequested   bool
 		noGenerateRequested bool
+		archRequested       bool
 	)
 
 	for i := 0; i < len(args); i++ {
@@ -116,6 +120,7 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 			}
 
 			i++
+
 			req.Package = args[i]
 
 			continue
@@ -131,7 +136,26 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 			}
 
 			i++
+
 			req.Output = args[i]
+
+			continue
+		}
+
+		if lower == "--arch" {
+			if command != "build" {
+				return nil, fmt.Errorf("unknown argument for %s: %s", command, arg)
+			}
+
+			if i+1 >= len(args) || args[i+1] == "--" {
+				return nil, fmt.Errorf("%s requires a value", lower)
+			}
+
+			i++
+
+			archRequested = true
+
+			req.TargetArch = args[i]
 
 			continue
 		}
@@ -146,6 +170,7 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 			}
 
 			i++
+
 			req.SigningKey = args[i]
 
 			continue
@@ -161,6 +186,7 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 			}
 
 			i++
+
 			req.SigningChains = append(req.SigningChains, args[i])
 
 			continue
@@ -200,6 +226,21 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 			if req.Output == "" {
 				return nil, fmt.Errorf("%s requires a value", strings.SplitN(lower, "=", 2)[0])
 			}
+
+			continue
+		}
+
+		if strings.HasPrefix(lower, "--arch=") {
+			if command != "build" {
+				return nil, fmt.Errorf("unknown argument for %s: %s", command, arg)
+			}
+
+			_, req.TargetArch, _ = strings.Cut(arg, "=")
+			if req.TargetArch == "" {
+				return nil, fmt.Errorf("--arch requires a value")
+			}
+
+			archRequested = true
 
 			continue
 		}
@@ -327,6 +368,14 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 		req.TargetOS = runtime.GOOS
 	}
 
+	if req.TargetArch == "" {
+		req.TargetArch = runtime.GOARCH
+	}
+
+	if req.CGO && !goenv.SupportsCGO(req.TargetOS, req.TargetArch) {
+		return nil, fmt.Errorf("cgo is not supported for %s/%s", req.TargetOS, req.TargetArch)
+	}
+
 	if req.Language == "" {
 		detectionDir := req.Cwd
 
@@ -344,6 +393,10 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 
 	if req.Output != "" && req.Language != "go" {
 		return nil, fmt.Errorf("--output is only supported for go builds")
+	}
+
+	if archRequested && req.Language != "go" {
+		return nil, fmt.Errorf("--arch is only supported for go builds")
 	}
 
 	if len(req.GoFlags) != 0 && req.Language != "go" {

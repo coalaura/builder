@@ -35,7 +35,7 @@ builder sign binary --sign key-file [--sign-chain file-or-url]... [--passphrase 
 builder verify binary [--cert file-or-url] [--cert-chain file-or-url]...
 ```
 
-Builder attempts to detect the project language when omitted. Only `build` accepts an operating system target.
+Builder attempts to detect the project language when omitted. Only `build` accepts an operating system target and the `--arch` architecture option.
 
 ### Build modes
 
@@ -57,6 +57,7 @@ Opposing build modes are mutually exclusive. Combining `--cgo` with `--pure`, `-
 - `--gen`, `--generate`: explicitly run `go generate ./...` (the default)
 - `--no-gen`, `--no-generate`: skip `go generate ./...`
 - `--out`, `--output`: override the Go build output name or path
+- `--arch`: override the Go target architecture (defaults to the host architecture)
 
 Common Go build and test flags can be passed directly before `--`. Builder merges `-ldflags` and `-tags` with its generated values and lets explicit Go flags override conflicting defaults.
 
@@ -95,6 +96,7 @@ builder verify example.exe --cert certificate.pem --cert-chain https://example.c
 
 ```sh
 builder build go --cgo --dyn --pkg ./cmd/example
+builder build go linux --arch arm64
 builder build go windows --output example.exe
 builder build go -tags integration -ldflags "-X main.version=dev"
 builder run go --pkg ./cmd/example -- banner.png

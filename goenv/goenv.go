@@ -148,6 +148,13 @@ func Prepare(options Options) Config {
 	}
 }
 
+// SupportsCGO reports whether CGO builds can target the OS and architecture.
+func SupportsCGO(targetOS, arch string) bool {
+	_, supported := zigTargets[targetOS+"/"+arch]
+
+	return supported
+}
+
 func configureCGO(env map[string]string, ldflags *string, options Options, targetOS, arch string) {
 	if !options.Dynamic && (targetOS == "linux" || targetOS == "windows") {
 		*ldflags += " -linkmode external -extldflags=-static"
