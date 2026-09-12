@@ -71,7 +71,7 @@ func signDarwinBinary(options Options, passphraseDuration *time.Duration) error 
 	return err
 }
 
-func verifyDarwinBinary(path string, certificates, chain []*x509.Certificate) ([]*x509.Certificate, error) {
+func verifyDarwinBinary(path string, certificates, chain []*x509.Certificate) (*Verification, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("verify Darwin signature: %w", err)

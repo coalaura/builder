@@ -134,7 +134,7 @@ func timestampLinuxSignature(ctx context.Context, signedData *pkcs7.ContentInfoS
 	return nil
 }
 
-func verifyLinuxBinary(path string, certificates, chain []*x509.Certificate) ([]*x509.Certificate, error) {
+func verifyLinuxBinary(path string, certificates, chain []*x509.Certificate) (*Verification, error) {
 	contents, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read signed Linux binary: %w", err)

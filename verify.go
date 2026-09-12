@@ -45,16 +45,18 @@ func ExecuteVerify(req *VerifyRequest) error {
 
 	start := time.Now()
 
-	chain, err := signing.Verify(signing.VerifyOptions{
+	verification, err := signing.Verify(signing.VerifyOptions{
 		Path:              req.Binary,
 		Certificate:       req.Certificate,
 		CertificateChains: req.CertificateChains,
 	})
+
 	if err != nil {
 		return err
 	}
 
-	printCertificateChain(chain)
+	printCertificateChain(verification.Chain)
+	printTimestamp(verification.Timestamp, verification.TimestampAuthority)
 	printDuration(start, "verified")
 
 	return nil
@@ -73,6 +75,16 @@ func printCertificateChain(chain []*x509.Certificate) {
 
 		Subf("%s: %s", role, certificate.Subject.String())
 	}
+}
+
+func printTimestamp(timestamp time.Time, authority *x509.Certificate) {
+	if authority == nil {
+		Subf("timestamp: %s", timestamp.UTC().Format(time.RFC3339))
+
+		return
+	}
+
+	Subf("timestamp: %s (%s)", timestamp.UTC().Format(time.RFC3339), authority.Subject.String())
 }
 
 func parseVerifyRequest(args []string) (*VerifyRequest, error) {

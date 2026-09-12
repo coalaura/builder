@@ -72,6 +72,13 @@ type VerifyOptions struct {
 	CertificateChains []string
 }
 
+// Verification describes a verified binary signature.
+type Verification struct {
+	Chain              []*x509.Certificate
+	Timestamp          time.Time
+	TimestampAuthority *x509.Certificate
+}
+
 var (
 	timestampClient    = &http.Client{Timeout: 30 * time.Second}
 	signingChainClient = &http.Client{Timeout: 30 * time.Second}
@@ -180,8 +187,8 @@ func Sign(options Options) (time.Duration, error) {
 // certificate is supplied, the signing certificate must match it; otherwise
 // the signature is verified against the system trust store alone. It returns
 // the verified certificate chain, ordered from the signing certificate to the
-// trust anchor.
-func Verify(options VerifyOptions) ([]*x509.Certificate, error) {
+// trust anchor, along with the timestamp authority.
+func Verify(options VerifyOptions) (*Verification, error) {
 	format, err := detectBinaryFormat(options.Path)
 	if err != nil {
 		return nil, err
@@ -267,7 +274,7 @@ func prepareSigningCertificate(keyPath string, chainSources []string, passphrase
 	return certificate, verifiedChain, interactivePrompt.duration, nil
 }
 
-func verifyTimestampedSignature(signature *pkcs9.TimestampedSignature, certificates, chain []*x509.Certificate) ([]*x509.Certificate, error) {
+func verifyTimestampedSignature(signature *pkcs9.TimestampedSignature, certificates, chain []*x509.Certificate) (*Verification, error) {
 	if signature.CounterSignature == nil {
 		return nil, fmt.Errorf("secure timestamp is missing")
 	}
@@ -293,7 +300,16 @@ func verifyTimestampedSignature(signature *pkcs9.TimestampedSignature, certifica
 		return nil, fmt.Errorf("verify embedded signing chain: %w", err)
 	}
 
-	return verifiedCertificateChain(leaf, roots, intermediates, signature.Intermediates, signature.CounterSignature.SigningTime)
+	verified, err := verifiedCertificateChain(leaf, roots, intermediates, signature.Intermediates, signature.CounterSignature.SigningTime)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Verification{
+		Chain:              verified,
+		Timestamp:          signature.CounterSignature.SigningTime,
+		TimestampAuthority: signature.CounterSignature.Certificate,
+	}, nil
 }
 
 func verifiedCertificateChain(leaf *x509.Certificate, roots *x509.CertPool, intermediates, embedded []*x509.Certificate, currentTime time.Time) ([]*x509.Certificate, error) {

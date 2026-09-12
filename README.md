@@ -82,7 +82,7 @@ builder sign example.exe --sign certificate.pfx --sign-chain https://example.com
 - `--cert`: require the signing certificate to match a certificate from a local file or HTTPS URL
 - `--cert-chain`: add certificates from a local file or HTTPS URL; repeat for multiple sources
 
-The standalone `builder verify` command detects the binary format and checks for a valid RFC 3161 timestamp. With `--cert`, the signing certificate must match the supplied certificate. Without `--cert`, the signature is verified against the system trust store. Missing intermediate or root certificates can be provided with `--cert-chain`. The verified certificate chain is printed on success.
+The standalone `builder verify` command detects the binary format and checks for a valid RFC 3161 timestamp. With `--cert`, the signing certificate must match the supplied certificate. Without `--cert`, the signature is verified against the system trust store. Missing intermediate or root certificates can be provided with `--cert-chain`. The verified certificate chain and timestamp are printed on success.
 
 ```sh
 builder verify example.exe
