@@ -20,7 +20,7 @@ RUN CGO_ENABLED=0 go build \
 
 RUN apk add --no-cache curl xz \
  && curl --fail --location --retry 5 --output /tmp/zig.tar.xz "https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-linux-${ZIG_VERSION}.tar.xz" \
- && echo "${ZIG_SHA256}  /tmp/zig.tar.xz" | sha256sum --check - \
+ && echo "${ZIG_SHA256}  /tmp/zig.tar.xz" | sha256sum -c - \
  && mkdir -p /opt/zig \
  && tar -xJf /tmp/zig.tar.xz --strip-components=1 -C /opt/zig \
  && rm -rf /opt/zig/doc /tmp/zig.tar.xz \
