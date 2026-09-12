@@ -342,6 +342,7 @@ func verifiedCertificateChain(leaf *x509.Certificate, roots *x509.CertPool, inte
 		CurrentTime:   currentTime,
 		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("build verified certificate chain: %w", err)
 	}
