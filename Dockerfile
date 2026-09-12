@@ -28,6 +28,8 @@ RUN apk add --no-cache curl xz \
 
 FROM golang:1.27.1-alpine
 
+RUN apk add --no-cache bash upx
+
 COPY --from=build /out/builder /usr/local/bin/builder
 COPY --from=build /opt/zig /opt/zig
 
