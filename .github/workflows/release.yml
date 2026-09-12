@@ -23,10 +23,10 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
 
     - name: Set up Go
-      uses: actions/setup-go@v6
+      uses: actions/setup-go@v7
       with:
         go-version-file: 'go.mod'
         cache: false
@@ -63,10 +63,58 @@ jobs:
           -o "bin/${{ env.project_name }}-${{ matrix.goos }}-amd64${EXT}" .
 
     - name: Upload Artifact
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: ${{ env.project_name }}_${{ matrix.goos }}_amd64
         path: bin/*
+
+  container:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v7
+
+    - name: Log in to the container registry
+      env:
+        REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        echo "$REGISTRY_TOKEN" | docker login ghcr.io --username "${{ github.actor }}" --password-stdin
+
+    - name: Build and push image
+      shell: bash
+      env:
+        IMAGE: ghcr.io/${{ github.repository }}
+      run: |
+        set -euo pipefail
+
+        tag_names=("$IMAGE:${GITHUB_REF_NAME}")
+
+        if [[ "$GITHUB_REF_NAME" != *-* ]]; then
+          tag_names+=("$IMAGE:latest")
+        fi
+
+        tag_args=()
+
+        for tag in "${tag_names[@]}"; do
+          tag_args+=(--tag "$tag")
+        done
+
+        docker build \
+          --platform linux/amd64 \
+          --build-arg "VERSION=${GITHUB_REF_NAME}" \
+          --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+          --label "org.opencontainers.image.version=${GITHUB_REF_NAME}" \
+          --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+          "${tag_args[@]}" \
+          .
+
+        for tag in "${tag_names[@]}"; do
+          docker push "$tag"
+        done
 
   sign:
     needs: build
@@ -250,7 +298,7 @@ jobs:
         )
 
     - name: Upload signed release
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: release
         path: |
@@ -262,7 +310,7 @@ jobs:
         retention-days: 1
 
   release:
-    needs: sign
+    needs: [sign, container]
     runs-on: ubuntu-latest
 
     permissions:
@@ -284,7 +332,7 @@ jobs:
         subject-checksums: dist/SHA256SUMS
 
     - name: Create GitHub Release
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       with:
         files: dist/*
         name: "Release ${{ github.ref_name }}"
