@@ -2,8 +2,6 @@
 
 A small (opinionated) CLI for building, running, testing and benchmarking Go and JavaScript projects.
 
-Fittingly, builder builds and signs its own releases in CI, much like the Go compiler compiling itself.
-
 The Go build environment is also available as an importable package:
 
 ```go
@@ -22,8 +20,14 @@ config := goenv.Prepare(goenv.Options{
 
 ## Install
 
+Download the latest signed binary for Windows, Linux or macOS from [GitHub Releases](https://github.com/coalaura/builder/releases/latest), verify it against `SHA256SUMS` and place it somewhere in your `PATH`.
+
+Alternatively, clone the repository and build builder from source. Despite the name, builder is not required to build builder (though you can [use the builder to build the builder](.github/workflows/release.yml#L29)).
+
 ```sh
-go install .
+git clone https://github.com/coalaura/builder.git
+cd builder
+go build .
 ```
 
 ## Usage
