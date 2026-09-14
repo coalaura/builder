@@ -225,12 +225,15 @@ func configureCGO(env map[string]string, ldflags *string, options Options, targe
 }
 
 func appendSDKFlags(command, sdk string) string {
-	include := filepath.Join(sdk, "usr", "include")
-
-	library := "-L" + filepath.Join(sdk, "usr", "lib")
 	frameworks := "-F" + filepath.Join(sdk, "System", "Library", "Frameworks")
 
-	arguments := [...]string{"--sysroot", sdk, "-isystem", include, library, frameworks}
+	arguments := [...]string{
+		"--sysroot",
+		sdk,
+		"-L/usr/lib",
+		frameworks,
+	}
+
 	quotedArguments := [len(arguments)]string{}
 
 	for index, argument := range arguments {
@@ -244,7 +247,7 @@ func appendSDKFlags(command, sdk string) string {
 
 	var result strings.Builder
 
-	result.Grow(len(command) + len(sdk)*4 + 64)
+	result.Grow(len(command) + len(sdk)*2 + 64)
 
 	result.WriteString(command)
 
