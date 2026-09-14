@@ -41,7 +41,7 @@ func NewSignSubcommand() *cli.Command {
 }
 
 func ExecuteSign(req *SignRequest) error {
-	Infof("[sign] signing %s", filepath.Base(req.Binary))
+	log.Infof("[sign] signing %s\n", filepath.Base(req.Binary))
 
 	start := time.Now()
 

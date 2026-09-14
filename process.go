@@ -11,7 +11,7 @@ import (
 
 func RunProcess(debug bool, dir string, env map[string]string, name string, args ...string) error {
 	if debug {
-		Infof("[debug] %s", formatCommand(name, args))
+		log.Infof("[debug] %s\n", formatCommand(name, args))
 
 		return nil
 	}

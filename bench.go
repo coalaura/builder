@@ -1,6 +1,8 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+)
 
 func ExecuteBench(req *Request) error {
 	switch req.Language {
@@ -17,7 +19,7 @@ func ExecuteBench(req *Request) error {
 			target = "./..."
 		}
 
-		Infof("[go] benchmarking %s (mode: %s)", target, cfg.Mode)
+		log.Infof("[go] benchmarking %s (mode: %s)\n", target, cfg.Mode)
 
 		args := []string{"test"}
 
@@ -28,21 +30,21 @@ func ExecuteBench(req *Request) error {
 		return RunProcess(req.Debug, req.Project, cfg.Env, "go", args...)
 	case "js":
 		if req.RunTarget != "" && doesFileExists(req.RunTarget) {
-			Infof("[bun] benchmarking %s", req.RunTarget)
+			log.Infof("[bun] benchmarking %s\n", req.RunTarget)
 
 			return RunProcess(req.Debug, req.Project, nil, "bun", append([]string{req.RunTarget}, req.Forward...)...)
 		}
 
 		script := findPackageJsonScript(req.Project, []string{"bench", "benchmark"})
 		if script != "" {
-			Infof("[bun/%s] benchmarking %s", script, req.Project)
+			log.Infof("[bun/%s] benchmarking %s\n", script, req.Project)
 
 			return RunProcess(req.Debug, req.Project, nil, "bun", append([]string{"run", script}, req.Forward...)...)
 		}
 
 		file := findFirstExistingFile(req.Project, []string{"bench.js", "bench.ts", "benchmark.js", "benchmark.ts"})
 		if file != "" {
-			Infof("[bun/%s] benchmarking %s", file, req.Project)
+			log.Infof("[bun/%s] benchmarking %s\n", file, req.Project)
 
 			return RunProcess(req.Debug, req.Project, nil, "bun", append([]string{file}, req.Forward...)...)
 		}

@@ -35,7 +35,7 @@ func ExecuteTest(req *Request) error {
 			target = "./..."
 		}
 
-		Infof("[go] testing %s (mode: %s)", target, cfg.Mode)
+		log.Infof("[go] testing %s (mode: %s)\n", target, cfg.Mode)
 
 		args := []string{"test"}
 
@@ -46,7 +46,7 @@ func ExecuteTest(req *Request) error {
 		return runGoTest(req.Debug, req.Project, cfg.Env, args)
 	case "js":
 		if req.RunTarget != "" && doesFileExists(req.RunTarget) {
-			Infof("[bun test] testing %s", req.RunTarget)
+			log.Infof("[bun test] testing %s\n", req.RunTarget)
 
 			args := []string{"test", req.RunTarget}
 
@@ -57,7 +57,7 @@ func ExecuteTest(req *Request) error {
 
 		script := findPackageJsonScript(req.Project, []string{"test"})
 		if script != "" {
-			Infof("[bun/%s] testing %s", script, req.Project)
+			log.Infof("[bun/%s] testing %s\n", script, req.Project)
 
 			args := []string{"run", script}
 
@@ -70,7 +70,7 @@ func ExecuteTest(req *Request) error {
 		specs, _ := filepath.Glob(filepath.Join(req.Project, "*.spec.*"))
 
 		if len(matches)+len(specs) > 0 {
-			Infof("[bun test] testing %s", req.Project)
+			log.Infof("[bun test] testing %s\n", req.Project)
 
 			args := []string{"test"}
 
@@ -87,7 +87,7 @@ func ExecuteTest(req *Request) error {
 
 func runGoTest(debug bool, dir string, env map[string]string, args []string) error {
 	if debug {
-		Infof("[debug] %s", formatCommand("go", args))
+		log.Infof("[debug] %s\n", formatCommand("go", args))
 
 		return nil
 	}

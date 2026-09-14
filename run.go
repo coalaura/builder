@@ -12,7 +12,7 @@ func ExecuteRun(req *Request) error {
 			return fmt.Errorf("%s is not a recognized php project", req.Project)
 		}
 
-		Infof("[php] running artisan serve")
+		log.Infof("[php] running artisan serve\n")
 
 		args := []string{"artisan", "serve", "--port=80"}
 
@@ -32,7 +32,7 @@ func ExecuteRun(req *Request) error {
 
 		cfg := prepareGo(req)
 
-		Infof("[go] running %s (mode: %s)", main, cfg.Mode)
+		log.Infof("[go] running %s (mode: %s)\n", main, cfg.Mode)
 
 		args := []string{"run"}
 
@@ -43,7 +43,7 @@ func ExecuteRun(req *Request) error {
 		return RunProcess(req.Debug, req.Project, cfg.Env, "go", args...)
 	case "js":
 		if req.RunTarget != "" && doesFileExists(req.RunTarget) {
-			Infof("[bun] running %s", req.RunTarget)
+			log.Infof("[bun] running %s\n", req.RunTarget)
 
 			args := []string{req.RunTarget}
 
@@ -54,7 +54,7 @@ func ExecuteRun(req *Request) error {
 
 		script := findPackageJsonScript(req.Project, []string{"dev", "watch", "start", "test"})
 		if script != "" {
-			Infof("[bun/%s] running %s", script, req.Project)
+			log.Infof("[bun/%s] running %s\n", script, req.Project)
 
 			args := []string{"run", script}
 
@@ -65,7 +65,7 @@ func ExecuteRun(req *Request) error {
 
 		file := findFirstExistingFile(req.Project, []string{"index.js", "main.js", "app.js"})
 		if file != "" {
-			Infof("[bun/%s] running %s", file, req.Project)
+			log.Infof("[bun/%s] running %s\n", file, req.Project)
 
 			args := []string{file}
 

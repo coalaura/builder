@@ -39,7 +39,7 @@ func ExecuteRequest(req *Request) error {
 func ExecuteScript(req *Request) error {
 	path := filepath.Join(req.Project, getScriptName(req.Command))
 
-	Infof("[%s] %s %s", filepath.Base(path), getActionWord(req.Command), req.Project)
+	log.Infof("[%s] %s %s\n", filepath.Base(path), getActionWord(req.Command), req.Project)
 
 	if runtime.GOOS == "windows" {
 		args := append([]string{"/d", "/c", "call", path}, req.Forward...)
@@ -62,7 +62,7 @@ func GenerateGo(req *Request) error {
 		return nil
 	}
 
-	Infof("[go] generating %s", req.Project)
+	log.Infof("[go] generating %s\n", req.Project)
 
 	start := time.Now()
 
@@ -197,9 +197,9 @@ func printDuration(start time.Time, action string) {
 	elapsed := time.Since(start)
 
 	if elapsed < time.Second {
-		Subf("%s in %dms", action, elapsed.Milliseconds())
+		log.Subf("%s in %dms\n", action, elapsed.Milliseconds())
 	} else {
-		Subf("%s in %.2fs", action, elapsed.Seconds())
+		log.Subf("%s in %.2fs\n", action, elapsed.Seconds())
 	}
 }
 

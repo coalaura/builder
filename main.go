@@ -6,10 +6,13 @@ import (
 	"os"
 	"strings"
 
+	"github.com/coalaura/plain/minimal"
 	"github.com/urfave/cli/v3"
 )
 
 var Version = "dev"
+
+var log = minimal.New()
 
 func main() {
 	err := NewCLI().Run(context.Background(), os.Args)
@@ -20,13 +23,13 @@ func main() {
 	status, ok := errors.AsType[cli.ExitCoder](err)
 	if ok {
 		if status.Error() != "" {
-			Errorf("%s", status.Error())
+			log.Errorf("%s\n", status.Error())
 		}
 
 		os.Exit(status.ExitCode())
 	}
 
-	Errorf("%s", err)
+	log.Errorf("%s\n", err)
 
 	os.Exit(1)
 }

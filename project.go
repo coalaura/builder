@@ -45,7 +45,7 @@ func findGoMain(project string, debug bool) string {
 	}
 
 	if debug {
-		Infof("[debug] %s", formatCommand("go", []string{"list", "-f", "{{.Name}}|{{.Dir}}", "./..."}))
+		log.Infof("[debug] %s\n", formatCommand("go", []string{"list", "-f", "{{.Name}}|{{.Dir}}", "./..."}))
 
 		return project
 	}

@@ -41,7 +41,7 @@ func NewVerifySubcommand() *cli.Command {
 }
 
 func ExecuteVerify(req *VerifyRequest) error {
-	Infof("[verify] verifying %s", filepath.Base(req.Binary))
+	log.Infof("[verify] verifying %s\n", filepath.Base(req.Binary))
 
 	start := time.Now()
 
@@ -75,7 +75,7 @@ func printCertificateChain(verification *signing.Verification) {
 			role = "root"
 		}
 
-		Subf("%-*s  %s %s", width, role, certificate.Subject.String(), trustBadge(verification.Trust[index]))
+		log.Subf("%-*s  %s %s\n", width, role, certificate.Subject.String(), trustBadge(verification.Trust[index]))
 	}
 }
 
@@ -100,12 +100,12 @@ func printTimestamp(timestamp time.Time, authority *x509.Certificate) {
 	formatted := timestamp.UTC().Format("2006-01-02 15:04:05 MST")
 
 	if authority == nil {
-		Subf("%-*s  %s", width, "timestamp", formatted)
+		log.Subf("%-*s  %s\n", width, "timestamp", formatted)
 
 		return
 	}
 
-	Subf("%-*s  %s by %s", width, "timestamp", formatted, authority.Subject.String())
+	log.Subf("%-*s  %s by %s\n", width, "timestamp", formatted, authority.Subject.String())
 }
 
 func parseVerifyRequest(args []string) (*VerifyRequest, error) {

@@ -35,7 +35,7 @@ func ExecuteBuild(req *Request) error {
 			output = filepath.Join(req.Cwd, output)
 		}
 
-		Infof("[go/%s/%s/%s] building %s (mode: %s)", req.TargetOS, req.TargetArch, filepath.Base(output), main, cfg.Mode)
+		log.Infof("[go/%s/%s/%s] building %s (mode: %s)\n", req.TargetOS, req.TargetArch, filepath.Base(output), main, cfg.Mode)
 
 		args := []string{"build"}
 
@@ -61,13 +61,13 @@ func ExecuteBuild(req *Request) error {
 			if !req.Debug {
 				_, err = exec.LookPath("upx")
 				if err != nil {
-					Infof("upx not found, skipping compression")
+					log.Infof("upx not found, skipping compression\n")
 					upxAvailable = false
 				}
 			}
 
 			if upxAvailable {
-				Infof("[upx] compressing %s", filepath.Base(output))
+				log.Infof("[upx] compressing %s\n", filepath.Base(output))
 
 				start = time.Now()
 
@@ -83,7 +83,7 @@ func ExecuteBuild(req *Request) error {
 		}
 
 		if req.SigningKey != "" {
-			Infof("[sign] signing %s", filepath.Base(output))
+			log.Infof("[sign] signing %s\n", filepath.Base(output))
 
 			if req.Debug {
 				return nil
@@ -117,7 +117,7 @@ func ExecuteBuild(req *Request) error {
 			return errors.New("no script found in package.json")
 		}
 
-		Infof("[bun/%s] building %s", script, req.Project)
+		log.Infof("[bun/%s] building %s\n", script, req.Project)
 
 		start := time.Now()
 

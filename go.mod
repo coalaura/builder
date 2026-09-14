@@ -3,6 +3,7 @@ module github.com/coalaura/builder
 go 1.27.0
 
 require (
+	github.com/coalaura/plain v1.6.1
 	github.com/sassoftware/relic/v8 v8.2.0
 	github.com/urfave/cli/v3 v3.11.0
 )
@@ -21,8 +22,8 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/zalando/go-keyring v0.2.6 // indirect
 	golang.org/x/crypto v0.32.0 // indirect
-	golang.org/x/sys v0.29.0 // indirect
-	golang.org/x/term v0.28.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
+	golang.org/x/term v0.46.0 // indirect
 	howett.net/plist v1.0.1 // indirect
 	software.sslmate.com/src/go-pkcs12 v0.5.0 // indirect
 )
