@@ -39,6 +39,12 @@ RUN apk add --no-cache \
     pkgconf \
     upx
 
+RUN apk add --no-cache \
+    bash \
+    ca-certificates \
+    git \
+    upx
+
 COPY --from=build /out/builder /usr/local/bin/builder
 COPY --from=build /opt/zig /opt/zig
 
