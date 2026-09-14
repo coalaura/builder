@@ -18,7 +18,7 @@ RUN CGO_ENABLED=0 go build \
     -o /out/builder \
     .
 
-RUN apk add --no-cache curl xz \
+RUN apk add --no-cache ca-certificates curl xz \
  && curl --fail --location --retry 5 --output /tmp/zig.tar.xz "https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-linux-${ZIG_VERSION}.tar.xz" \
  && echo "${ZIG_SHA256}  /tmp/zig.tar.xz" | sha256sum -c - \
  && mkdir -p /opt/zig \
@@ -28,7 +28,16 @@ RUN apk add --no-cache curl xz \
 
 FROM golang:1.27.1-alpine
 
-RUN apk add --no-cache bash upx
+RUN apk add --no-cache \
+    bash \
+    build-base \
+    ca-certificates \
+    cmake \
+    git \
+    linux-headers \
+    ninja \
+    pkgconf \
+    upx
 
 COPY --from=build /out/builder /usr/local/bin/builder
 COPY --from=build /opt/zig /opt/zig
