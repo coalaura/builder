@@ -41,6 +41,7 @@ RUN apk add --no-cache \
 
 COPY --from=build /out/builder /usr/local/bin/builder
 COPY --from=build /opt/zig /opt/zig
+COPY --from=macos-sdk / /opt/osxcross/SDK/MacOSX.sdk/
 
 RUN ln -s /opt/zig/zig /usr/bin/zig
 

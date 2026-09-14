@@ -68,12 +68,80 @@ jobs:
         name: ${{ env.project_name }}_${{ matrix.goos }}_amd64
         path: bin/*
 
+  macos-sdk:
+    runs-on: macos-26
+
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.5.app/Contents/Developer
+      MACOS_SDK_VERSION: '26.5'
+
+    outputs:
+      sha256: ${{ steps.package.outputs.sha256 }}
+
+    steps:
+    - name: Package macOS SDK
+      id: package
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        SDK_VERSION="$(xcrun --sdk macosx --show-sdk-version)"
+
+        if [[ "$SDK_VERSION" != "$MACOS_SDK_VERSION" ]]; then
+          echo "Expected macOS SDK $MACOS_SDK_VERSION, found $SDK_VERSION" >&2
+          exit 1
+        fi
+
+        SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
+        ARCHIVE_PATH="$RUNNER_TEMP/macos-sdk.tar.gz"
+
+        test -d "$SDK_PATH/usr/include"
+        test -f "$SDK_PATH/usr/lib/libSystem.tbd"
+        test -f "$SDK_PATH/usr/lib/libresolv.tbd"
+        test -d "$SDK_PATH/System/Library/Frameworks"
+
+        COPYFILE_DISABLE=1 tar -czf "$ARCHIVE_PATH" -C "$SDK_PATH" .
+
+        SDK_SHA256="$(shasum -a 256 "$ARCHIVE_PATH" | cut -d ' ' -f 1)"
+        echo "sha256=$SDK_SHA256" >> "$GITHUB_OUTPUT"
+
+    - name: Upload macOS SDK
+      uses: actions/upload-artifact@v7
+      with:
+        name: macos-sdk
+        path: ${{ runner.temp }}/macos-sdk.tar.gz
+        if-no-files-found: error
+        compression-level: 0
+        retention-days: 1
+
   container:
+    needs: macos-sdk
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout
       uses: actions/checkout@v7
+
+    - name: Download macOS SDK
+      uses: actions/download-artifact@v8
+      with:
+        name: macos-sdk
+        path: ${{ runner.temp }}/macos-sdk
+
+    - name: Prepare macOS SDK
+      shell: bash
+      env:
+        MACOS_SDK_SHA256: ${{ needs.macos-sdk.outputs.sha256 }}
+      run: |
+        set -euo pipefail
+
+        ARCHIVE_PATH="$RUNNER_TEMP/macos-sdk/macos-sdk.tar.gz"
+        SDK_PATH="$RUNNER_TEMP/macos-sdk/root"
+
+        echo "$MACOS_SDK_SHA256  $ARCHIVE_PATH" | sha256sum --check -
+
+        mkdir -p "$SDK_PATH"
+        tar -xzf "$ARCHIVE_PATH" -C "$SDK_PATH"
 
     - name: Log in to Docker Hub
       env:
@@ -103,6 +171,7 @@ jobs:
 
         docker build \
           --platform linux/amd64 \
+          --build-context "macos-sdk=${RUNNER_TEMP}/macos-sdk/root" \
           --build-arg "VERSION=${GITHUB_REF_NAME}" \
           --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
           --label "org.opencontainers.image.version=${GITHUB_REF_NAME}" \
