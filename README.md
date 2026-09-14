@@ -22,7 +22,7 @@ config := goenv.Prepare(goenv.Options{
 
 Download the latest signed binary for Windows, Linux or macOS from [GitHub Releases](https://github.com/coalaura/builder/releases/latest), verify it against `SHA256SUMS` and place it somewhere in your `PATH`.
 
-Alternatively, clone the repository and build builder from source. Despite the name, builder is not required to build builder (though you can [use the builder to build the builder](.github/workflows/release.yml#L29)).
+Alternatively, clone the repository and build builder from source. Despite the name, builder is not required to build the builder (though you can [use the builder to build the builder](.github/workflows/release.yml#L29)).
 
 ```sh
 git clone https://github.com/coalaura/builder.git
