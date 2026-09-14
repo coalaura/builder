@@ -26,7 +26,7 @@ RUN apk add --no-cache ca-certificates curl xz \
  && rm -rf /opt/zig/doc /tmp/zig.tar.xz \
  && /opt/zig/zig version
 
-FROM golang:1.27.1-alpine
+FROM golang:1.27.1-alpine AS runtime
 
 RUN apk add --no-cache \
     bash \
@@ -41,8 +41,13 @@ RUN apk add --no-cache \
 
 COPY --from=build /out/builder /usr/local/bin/builder
 COPY --from=build /opt/zig /opt/zig
-COPY --from=macos-sdk / /opt/osxcross/SDK/MacOSX.sdk/
 
 RUN ln -s /opt/zig/zig /usr/bin/zig
 
 ENTRYPOINT ["builder"]
+
+FROM runtime AS macos
+
+COPY --from=macos-sdk / /opt/osxcross/SDK/MacOSX.sdk/
+
+FROM runtime AS standard
