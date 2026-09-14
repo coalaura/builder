@@ -2,6 +2,8 @@
 
 A small (opinionated) CLI for building, running, testing and benchmarking Go and JavaScript projects.
 
+Fittingly, builder builds and signs its own releases in CI, much like the Go compiler compiling itself.
+
 The Go build environment is also available as an importable package:
 
 ```go
