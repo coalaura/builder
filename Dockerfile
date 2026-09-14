@@ -30,17 +30,6 @@ FROM golang:1.27.1-alpine AS runtime
 
 RUN apk add --no-cache \
     bash \
-    build-base \
-    ca-certificates \
-    cmake \
-    git \
-    linux-headers \
-    ninja \
-    pkgconf \
-    upx
-
-RUN apk add --no-cache \
-    bash \
     ca-certificates \
     git \
     upx
