@@ -16,6 +16,7 @@ func prepareGo(req *Request) goenv.Config {
 		Optimize:    !req.Compatible,
 		Dynamic:     req.Dynamic,
 		Minify:      req.Minify,
+		Cwd:         req.Cwd,
 		Experiments: strings.Split(os.Getenv("GOEXPERIMENT"), ","),
 	})
 }

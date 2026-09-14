@@ -2,6 +2,8 @@
 package goenv
 
 import (
+	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 )
@@ -17,6 +19,7 @@ type Options struct {
 	Optimize    bool
 	Dynamic     bool
 	Minify      bool
+	Cwd         string
 }
 
 // Config contains environment overrides and command flags for a Go build.
@@ -183,6 +186,22 @@ func configureCGO(env map[string]string, ldflags *string, options Options, targe
 		env["CXX"] += " " + archFlag
 	}
 
+	if targetOS == "darwin" && runtime.GOOS != "darwin" {
+		cwd := options.Cwd
+		if cwd == "" {
+			cwd, _ = os.Getwd()
+		}
+
+		home, _ := os.UserHomeDir()
+
+		sdk := discoverMacOSSDK(cwd, home, os.Getenv("PATH"), os.Getenv("SDKROOT"), runtime.GOOS)
+
+		if sdk != "" {
+			env["CC"] = appendSDKFlags(env["CC"], sdk)
+			env["CXX"] = appendSDKFlags(env["CXX"], sdk)
+		}
+	}
+
 	optimizationFlag := "-O3"
 
 	if options.Minify {
@@ -203,6 +222,58 @@ func configureCGO(env map[string]string, ldflags *string, options Options, targe
 	} else {
 		env["CGO_LDFLAGS"] = "-Wl,--gc-sections"
 	}
+}
+
+func appendSDKFlags(command, sdk string) string {
+	include := filepath.Join(sdk, "usr", "include")
+
+	library := "-L" + filepath.Join(sdk, "usr", "lib")
+	frameworks := "-F" + filepath.Join(sdk, "System", "Library", "Frameworks")
+
+	arguments := [...]string{"--sysroot", sdk, "-isystem", include, library, frameworks}
+	quotedArguments := [len(arguments)]string{}
+
+	for index, argument := range arguments {
+		quoted, valid := quoteCompilerArgument(argument)
+		if !valid {
+			return command
+		}
+
+		quotedArguments[index] = quoted
+	}
+
+	var result strings.Builder
+
+	result.Grow(len(command) + len(sdk)*4 + 64)
+
+	result.WriteString(command)
+
+	for _, argument := range quotedArguments {
+		result.WriteByte(' ')
+		result.WriteString(argument)
+	}
+
+	return result.String()
+}
+
+func quoteCompilerArgument(argument string) (string, bool) {
+	hasSpace := strings.ContainsAny(argument, " \t\n\r")
+	hasSingleQuote := strings.ContainsRune(argument, '\'')
+	hasDoubleQuote := strings.ContainsRune(argument, '"')
+
+	if !hasSpace && !hasSingleQuote && !hasDoubleQuote {
+		return argument, true
+	}
+
+	if !hasSingleQuote {
+		return "'" + argument + "'", true
+	}
+
+	if !hasDoubleQuote {
+		return "\"" + argument + "\"", true
+	}
+
+	return "", false
 }
 
 func uniqueCSV(values ...string) []string {
