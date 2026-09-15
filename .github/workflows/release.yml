@@ -34,6 +34,8 @@ jobs:
         arch: amd64
         generate: false
         output: dist/${{ env.project_name }}-${{ matrix.goos }}-amd64${{ matrix.goos == 'windows' && '.exe' || '' }}
+        go-flags: |
+          -ldflags=-X main.Version=${{ github.ref_name }}
 
     - name: Sign
       id: sign
