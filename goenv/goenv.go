@@ -5,21 +5,25 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 )
 
+const darwinNoteCommandSize = 40
+
 // Options describes the target and build characteristics.
 type Options struct {
-	Tags        []string
-	Experiments []string
-	OS          string
-	Arch        string
-	CGO         bool
-	GUI         bool
-	Optimize    bool
-	Dynamic     bool
-	Minify      bool
-	Cwd         string
+	Tags            []string
+	Experiments     []string
+	OS              string
+	Arch            string
+	CGO             bool
+	GUI             bool
+	Optimize        bool
+	Dynamic         bool
+	Minify          bool
+	MetadataEntries int
+	Cwd             string
 }
 
 // Config contains environment overrides and command flags for a Go build.
@@ -141,6 +145,12 @@ func Prepare(options Options) Config {
 
 	if options.CGO {
 		configureCGO(env, &ldflags, options, targetOS, arch)
+	}
+
+	if options.MetadataEntries > 0 && options.CGO && targetOS == "darwin" {
+		headerPadding := int64(options.MetadataEntries) * darwinNoteCommandSize
+
+		ldflags += " -extldflags=-Wl,-headerpad," + strconv.FormatInt(headerPadding, 16)
 	}
 
 	return Config{

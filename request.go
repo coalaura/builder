@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/coalaura/builder/goenv"
+	"github.com/coalaura/builder/metadata"
 )
 
 type Request struct {
@@ -21,6 +22,7 @@ type Request struct {
 	SigningKey    string
 	SigningChains []string
 	Passphrase    string
+	Metadata      []metadata.Entry
 	CGO           bool
 	Dynamic       bool
 	Compatible    bool
@@ -208,6 +210,27 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 			continue
 		}
 
+		if lower == "--meta" {
+			if command != "build" {
+				return nil, fmt.Errorf("unknown argument for %s: %s", command, arg)
+			}
+
+			if i+1 >= len(args) || args[i+1] == "--" {
+				return nil, fmt.Errorf("--meta requires a value")
+			}
+
+			i++
+
+			entry, err := parseMetadataEntry(args[i])
+			if err != nil {
+				return nil, err
+			}
+
+			req.Metadata = append(req.Metadata, entry)
+
+			continue
+		}
+
 		if strings.HasPrefix(lower, "--package=") || strings.HasPrefix(lower, "--pkg=") {
 			_, req.Package, _ = strings.Cut(arg, "=")
 			if req.Package == "" {
@@ -282,6 +305,23 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 			if req.Passphrase == "" {
 				return nil, fmt.Errorf("--passphrase requires a value")
 			}
+
+			continue
+		}
+
+		if strings.HasPrefix(lower, "--meta=") {
+			if command != "build" {
+				return nil, fmt.Errorf("unknown argument for %s: %s", command, arg)
+			}
+
+			_, value, _ := strings.Cut(arg, "=")
+
+			entry, err := parseMetadataEntry(value)
+			if err != nil {
+				return nil, err
+			}
+
+			req.Metadata = append(req.Metadata, entry)
 
 			continue
 		}
@@ -407,6 +447,15 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 		return nil, fmt.Errorf("--sign is only supported for Go builds")
 	}
 
+	if len(req.Metadata) != 0 && req.Language != "go" {
+		return nil, fmt.Errorf("--meta is only supported for Go builds")
+	}
+
+	err = metadata.Validate(req.Metadata)
+	if err != nil {
+		return nil, err
+	}
+
 	if len(req.SigningChains) != 0 && req.SigningKey == "" {
 		return nil, fmt.Errorf("--sign-chain requires --sign")
 	}
@@ -416,6 +465,22 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 	}
 
 	return req, nil
+}
+
+func parseMetadataEntry(value string) (metadata.Entry, error) {
+	key, entryValue, found := strings.Cut(value, "=")
+	if !found {
+		return metadata.Entry{}, fmt.Errorf("--meta requires key=value")
+	}
+
+	entry := metadata.Entry{Key: key, Value: entryValue}
+
+	err := metadata.Validate([]metadata.Entry{entry})
+	if err != nil {
+		return metadata.Entry{}, err
+	}
+
+	return entry, nil
 }
 
 func parseGoFlag(command, arg string) (string, bool, bool) {

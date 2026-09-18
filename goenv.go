@@ -9,14 +9,15 @@ import (
 
 func prepareGo(req *Request) goenv.Config {
 	return goenv.Prepare(goenv.Options{
-		CGO:         req.CGO,
-		OS:          req.TargetOS,
-		Arch:        req.TargetArch,
-		GUI:         req.GUI,
-		Optimize:    !req.Compatible,
-		Dynamic:     req.Dynamic,
-		Minify:      req.Minify,
-		Cwd:         req.Cwd,
-		Experiments: strings.Split(os.Getenv("GOEXPERIMENT"), ","),
+		CGO:             req.CGO,
+		OS:              req.TargetOS,
+		Arch:            req.TargetArch,
+		GUI:             req.GUI,
+		Optimize:        !req.Compatible,
+		Dynamic:         req.Dynamic,
+		Minify:          req.Minify,
+		MetadataEntries: len(req.Metadata),
+		Cwd:             req.Cwd,
+		Experiments:     strings.Split(os.Getenv("GOEXPERIMENT"), ","),
 	})
 }

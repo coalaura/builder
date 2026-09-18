@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/coalaura/builder/metadata"
 	"github.com/coalaura/builder/signing"
 )
 
@@ -79,6 +80,21 @@ func ExecuteBuild(req *Request) error {
 				if !req.Debug {
 					printDuration(start, "compressed")
 				}
+			}
+		}
+
+		if len(req.Metadata) != 0 {
+			log.Infof("[meta] embedding metadata in %s\n", filepath.Base(output))
+
+			if !req.Debug {
+				start = time.Now()
+
+				err = metadata.Embed(output, req.Metadata)
+				if err != nil {
+					return err
+				}
+
+				printDuration(start, "embedded metadata")
 			}
 		}
 

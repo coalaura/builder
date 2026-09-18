@@ -66,8 +66,15 @@ When cross-compiling a Darwin CGO build, builder uses an existing macOS SDK when
 - `--no-gen`, `--no-generate`: skip `go generate ./...`
 - `--out`, `--output`: override the Go build output name or path
 - `--arch`: override the Go target architecture (defaults to the host architecture)
+- `--meta key=value`: embed native executable metadata; repeat for multiple entries
 
 Common Go build and test flags can be passed directly before `--`. Builder merges `-ldflags` and `-tags` with its generated values and lets explicit Go flags override conflicting defaults.
+
+Metadata uses `RT_RCDATA` resources on Windows, `LC_NOTE` commands on Darwin and ELF notes on Linux. It is embedded after optional compression and before signing.
+
+```sh
+builder build go linux --meta version=1.2.3 --meta commit=abc123
+```
 
 The generation options are mutually exclusive.
 

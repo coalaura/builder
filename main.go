@@ -69,7 +69,7 @@ func NewSubcommand(name, usage string, languages []string, allowOS bool) *cli.Co
 	)
 
 	if name == "build" {
-		parts = append(parts, "[--arch arch]", "[--out name]", "[--sign key-file]", "[--sign-chain file-or-url]...", "[--passphrase value]")
+		parts = append(parts, "[--arch arch]", "[--out name]", "[--meta key=value]...", "[--sign key-file]", "[--sign-chain file-or-url]...", "[--passphrase value]")
 	}
 
 	if name == "build" || name == "run" {
