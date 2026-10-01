@@ -56,6 +56,8 @@ Builder attempts to detect the project language when omitted. Only `build` accep
 
 Opposing build modes are mutually exclusive. Combining `--cgo` with `--pure`, `--dyn` with `--stat`, `--compat` with `--opt` or `--min` with `--no-min` is an error.
 
+Passing `-race` automatically enables CGO, even without `--cgo` or when `--pure` is specified, because Go's race detector requires it.
+
 When cross-compiling a Darwin CGO build, builder uses an existing macOS SDK when one is available. It checks a valid `SDKROOT` first, then xmac and OSXCross layouts under the invocation directory, SDK/SDKs directories beside `bin` entries in `PATH`, xmac and OSXCross layouts under the home directory and finally common `/usr/local/osxcross` and `/opt/osxcross` prefixes on Linux. SDK discovery is optional; builder does not download an SDK and native macOS discovery remains Zig's responsibility.
 
 ### Project options

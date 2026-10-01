@@ -9,7 +9,10 @@ import (
 	"strings"
 )
 
-const darwinNoteCommandSize = 40
+const (
+	darwinNoteCommandSize             = 40
+	windowsRaceSynchronizationLibrary = "-lapi-ms-win-core-synch-l1-2-0"
+)
 
 // Options describes the target and build characteristics.
 type Options struct {
@@ -17,13 +20,14 @@ type Options struct {
 	Experiments     []string
 	OS              string
 	Arch            string
+	Cwd             string
+	MetadataEntries int
 	CGO             bool
+	Race            bool
 	GUI             bool
 	Optimize        bool
 	Dynamic         bool
 	Minify          bool
-	MetadataEntries int
-	Cwd             string
 }
 
 // Config contains environment overrides and command flags for a Go build.
@@ -169,8 +173,28 @@ func SupportsCGO(targetOS, arch string) bool {
 }
 
 func configureCGO(env map[string]string, ldflags *string, options Options, targetOS, arch string) {
+	var externalLink bool
+
+	externalLinkerFlags := make([]string, 0, 2)
+
 	if !options.Dynamic && (targetOS == "linux" || targetOS == "windows") {
-		*ldflags += " -linkmode external -extldflags=-static"
+		externalLink = true
+
+		externalLinkerFlags = append(externalLinkerFlags, "-static")
+	}
+
+	if options.Race && targetOS == "windows" && arch == "amd64" {
+		externalLink = true
+
+		externalLinkerFlags = append(externalLinkerFlags, windowsRaceSynchronizationLibrary)
+	}
+
+	if externalLink {
+		*ldflags += " -linkmode external"
+	}
+
+	if len(externalLinkerFlags) != 0 {
+		*ldflags += ` "-extldflags=` + strings.Join(externalLinkerFlags, " ") + `"`
 	}
 
 	env["CC"] = "zig cc"
