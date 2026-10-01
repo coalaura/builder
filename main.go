@@ -41,6 +41,7 @@ func NewCLI() *cli.Command {
 		Usage:          "build, run, test and benchmark projects",
 		ExitErrHandler: func(context.Context, *cli.Command, error) {},
 		Commands: []*cli.Command{
+			NewSetupSubcommand(),
 			NewSubcommand("build", "build a project", []string{"go", "js"}, true),
 			NewSubcommand("run", "run a project", []string{"go", "js", "php"}, false),
 			NewSubcommand("test", "test a project", []string{"go", "js"}, false),

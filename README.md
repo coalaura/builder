@@ -33,6 +33,7 @@ go build .
 ## Usage
 
 ```sh
+builder setup
 builder build [language] [os] [options] [go flags...] [target]
 builder run [language] [options] [go flags...] [target] [-- arguments...]
 builder test [language] [options] [go flags...] [target] [-- arguments...]
@@ -42,6 +43,14 @@ builder verify binary [--cert file-or-url] [--cert-chain file-or-url]...
 ```
 
 Builder attempts to detect the project language when omitted. Only `build` accepts an operating system target and the `--arch` architecture option.
+
+### Environment setup
+
+`builder setup` checks that Go and Zig are available in `PATH` and can report their versions. For each missing tool, it shows the exact package manager command and asks for `[yN]` confirmation immediately before running it. Enter `y` or `yes` to install that tool; an empty answer or any other response cancels setup. Go and Zig are confirmed separately, so you can decline either installation and install the tool yourself instead.
+
+Supported package managers are winget/choco on Windows, brew on macOS and apt/dnf/pacman/apk/brew on Linux. Builder checks package availability before installing and tries another supported manager if a package is unavailable. Linux system package managers require root or `sudo`; Windows installers may request administrator privileges. Existing tools are left as installed.
+
+Setup fails if no usable package manager can provide a missing tool or if installation fails. It does not download toolchains directly or add package repositories. If an installer updates `PATH` for future terminals, open a new terminal and run `builder setup` again to finish verification.
 
 ### Build modes
 
