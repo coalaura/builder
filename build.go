@@ -14,9 +14,11 @@ import (
 func ExecuteBuild(req *Request) error {
 	switch req.Language {
 	case "go":
+		executable := req.GoExecutable()
+
 		main := req.RunTarget
 		if main == "" {
-			main = findGoMain(req.Project, req.Debug)
+			main = findGoMain(req.Project, req.Debug, executable)
 		}
 
 		err := GenerateGo(req)
@@ -36,7 +38,7 @@ func ExecuteBuild(req *Request) error {
 			output = filepath.Join(req.Cwd, output)
 		}
 
-		log.Infof("[go/%s/%s/%s] building %s (mode: %s)\n", req.TargetOS, req.TargetArch, filepath.Base(output), main, cfg.Mode)
+		log.Infof("[%s/%s/%s/%s] building %s (mode: %s)\n", executable, req.TargetOS, req.TargetArch, filepath.Base(output), main, cfg.Mode)
 
 		args := []string{"build"}
 
@@ -47,7 +49,7 @@ func ExecuteBuild(req *Request) error {
 
 		start := time.Now()
 
-		err = RunProcess(req.Debug, req.Project, cfg.Env, "go", args...)
+		err = RunProcess(req.Debug, req.Project, cfg.Env, executable, args...)
 		if err != nil {
 			return err
 		}

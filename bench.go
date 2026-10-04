@@ -14,12 +14,14 @@ func ExecuteBench(req *Request) error {
 
 		cfg := prepareGo(req)
 
+		executable := req.GoExecutable()
+
 		target := req.RunTarget
 		if target == "" {
 			target = "./..."
 		}
 
-		log.Infof("[go] benchmarking %s (mode: %s)\n", target, cfg.Mode)
+		log.Infof("[%s] benchmarking %s (mode: %s)\n", executable, target, cfg.Mode)
 
 		args := []string{"test"}
 
@@ -27,7 +29,7 @@ func ExecuteBench(req *Request) error {
 		args = append(args, target)
 		args = append(args, req.Forward...)
 
-		return RunProcess(req.Debug, req.Project, cfg.Env, "go", args...)
+		return RunProcess(req.Debug, req.Project, cfg.Env, executable, args...)
 	case "js":
 		if req.RunTarget != "" && doesFileExists(req.RunTarget) {
 			log.Infof("[bun] benchmarking %s\n", req.RunTarget)

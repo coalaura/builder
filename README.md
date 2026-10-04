@@ -71,6 +71,8 @@ When cross-compiling a Darwin CGO build, builder uses an existing macOS SDK when
 
 ### Project options
 
+- `--pace`: use PACE instead of Go for Go projects
+- `--no-pace`: use Go (the default)
 - `--gui`: use the Windows GUI subsystem for Go builds and runs
 - `--pkg`, `--package`: select a Go package
 - `--gen`, `--generate`: explicitly run `go generate ./...` (the default)
@@ -87,7 +89,9 @@ Metadata uses `RT_RCDATA` resources on Windows, `LC_NOTE` commands on Darwin and
 builder build go linux --meta version=1.2.3 --meta commit=abc123
 ```
 
-The generation options are mutually exclusive.
+`--pace` applies to `build`, `run`, `test` and `bench`, including generation and package discovery. The `pace` executable must be available in `PATH`.
+
+The generation options are mutually exclusive, as are `--pace` and `--no-pace`.
 
 ### Signing
 
@@ -125,6 +129,7 @@ builder build go --cgo --dyn --pkg ./cmd/example
 builder build go linux --arch arm64
 builder build go windows --output example.exe
 builder build go -tags integration -ldflags "-X main.version=dev"
+builder build go --pace
 builder run go --pkg ./cmd/example -- banner.png
 builder test go --no-generate --debug
 ```

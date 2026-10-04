@@ -20,9 +20,11 @@ func ExecuteRun(req *Request) error {
 
 		return RunProcess(req.Debug, req.Project, nil, "php", args...)
 	case "go":
+		executable := req.GoExecutable()
+
 		main := req.RunTarget
 		if main == "" {
-			main = findGoMain(req.Project, req.Debug)
+			main = findGoMain(req.Project, req.Debug, executable)
 		}
 
 		err := GenerateGo(req)
@@ -32,7 +34,7 @@ func ExecuteRun(req *Request) error {
 
 		cfg := prepareGo(req)
 
-		log.Infof("[go] running %s (mode: %s)\n", main, cfg.Mode)
+		log.Infof("[%s] running %s (mode: %s)\n", executable, main, cfg.Mode)
 
 		args := []string{"run"}
 
@@ -40,7 +42,7 @@ func ExecuteRun(req *Request) error {
 		args = append(args, main)
 		args = append(args, req.Forward...)
 
-		return RunProcess(req.Debug, req.Project, cfg.Env, "go", args...)
+		return RunProcess(req.Debug, req.Project, cfg.Env, executable, args...)
 	case "js":
 		if req.RunTarget != "" && doesFileExists(req.RunTarget) {
 			log.Infof("[bun] running %s\n", req.RunTarget)

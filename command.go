@@ -62,11 +62,13 @@ func GenerateGo(req *Request) error {
 		return nil
 	}
 
-	log.Infof("[go] generating %s\n", req.Project)
+	executable := req.GoExecutable()
+
+	log.Infof("[%s] generating %s\n", executable, req.Project)
 
 	start := time.Now()
 
-	err := RunProcess(req.Debug, req.Project, nil, "go", "generate", "./...")
+	err := RunProcess(req.Debug, req.Project, nil, executable, "generate", "./...")
 	if err != nil {
 		return err
 	}

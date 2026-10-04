@@ -61,6 +61,7 @@ func NewSubcommand(name, usage string, languages []string, allowOS bool) *cli.Co
 
 	parts = append(
 		parts,
+		"[--pace]", "[--no-pace]",
 		"[--cgo]", "[--pure]",
 		"[--dyn]", "[--stat]",
 		"[--compat]", "[--opt]",

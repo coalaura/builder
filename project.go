@@ -39,18 +39,18 @@ func findPackageJsonScript(project string, allowed []string) string {
 	return ""
 }
 
-func findGoMain(project string, debug bool) string {
+func findGoMain(project string, debug bool, executable string) string {
 	if doesDirectoryHaveGoMain(project) {
 		return project
 	}
 
 	if debug {
-		log.Infof("[debug] %s\n", formatCommand("go", []string{"list", "-f", "{{.Name}}|{{.Dir}}", "./..."}))
+		log.Infof("[debug] %s\n", formatCommand(executable, []string{"list", "-f", "{{.Name}}|{{.Dir}}", "./..."}))
 
 		return project
 	}
 
-	cmd := exec.Command("go", "list", "-f", "{{.Name}}|{{.Dir}}", "./...")
+	cmd := exec.Command(executable, "list", "-f", "{{.Name}}|{{.Dir}}", "./...")
 
 	cmd.Dir = project
 

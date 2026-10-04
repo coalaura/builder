@@ -30,12 +30,14 @@ func ExecuteTest(req *Request) error {
 
 		cfg := prepareGo(req)
 
+		executable := req.GoExecutable()
+
 		target := req.RunTarget
 		if target == "" {
 			target = "./..."
 		}
 
-		log.Infof("[go] testing %s (mode: %s)\n", target, cfg.Mode)
+		log.Infof("[%s] testing %s (mode: %s)\n", executable, target, cfg.Mode)
 
 		args := []string{"test"}
 
@@ -43,7 +45,7 @@ func ExecuteTest(req *Request) error {
 		args = append(args, target)
 		args = append(args, req.Forward...)
 
-		return runGoTest(req.Debug, req.Project, cfg.Env, args)
+		return runGoTest(req.Debug, req.Project, cfg.Env, executable, args)
 	case "js":
 		if req.RunTarget != "" && doesFileExists(req.RunTarget) {
 			log.Infof("[bun test] testing %s\n", req.RunTarget)
@@ -85,14 +87,14 @@ func ExecuteTest(req *Request) error {
 	return fmt.Errorf("%s is not a recognized test project", req.Project)
 }
 
-func runGoTest(debug bool, dir string, env map[string]string, args []string) error {
+func runGoTest(debug bool, dir string, env map[string]string, executable string, args []string) error {
 	if debug {
-		log.Infof("[debug] %s\n", formatCommand("go", args))
+		log.Infof("[debug] %s\n", formatCommand(executable, args))
 
 		return nil
 	}
 
-	cmd := exec.Command("go", args...)
+	cmd := exec.Command(executable, args...)
 
 	cmd.Dir = dir
 	cmd.Env = mergeEnvironment(env)

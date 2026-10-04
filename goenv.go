@@ -12,7 +12,7 @@ func prepareGo(req *Request) goenv.Config {
 	isRace := goBoolFlagEnabled(req.GoFlags, "race")
 
 	if isRace && !req.CGO {
-		log.Warnln("[go] enabling cgo for -race")
+		log.Warnf("[%s] enabling cgo for -race\n", req.GoExecutable())
 
 		req.CGO = true
 	}

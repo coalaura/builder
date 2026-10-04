@@ -23,6 +23,7 @@ type Request struct {
 	SigningChains []string
 	Passphrase    string
 	Metadata      []metadata.Entry
+	PACE          bool
 	CGO           bool
 	Dynamic       bool
 	Compatible    bool
@@ -37,6 +38,14 @@ type Request struct {
 	RunTarget     string
 }
 
+func (req *Request) GoExecutable() string {
+	if req.PACE {
+		return "pace"
+	}
+
+	return "go"
+}
+
 func parseRequest(command string, args, languages []string, allowOS bool) (*Request, error) {
 	req := &Request{Command: command}
 
@@ -48,6 +57,8 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 
 	var (
 		forwarding          bool
+		paceRequested       bool
+		noPaceRequested     bool
 		cgoRequested        bool
 		pureRequested       bool
 		dynamicRequested    bool
@@ -327,6 +338,12 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 		}
 
 		switch lower {
+		case "--pace":
+			paceRequested = true
+			req.PACE = true
+		case "--no-pace":
+			noPaceRequested = true
+			req.PACE = false
 		case "--cgo":
 			cgoRequested = true
 			req.CGO = true
@@ -383,6 +400,8 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 	}
 
 	switch {
+	case paceRequested && noPaceRequested:
+		return nil, fmt.Errorf("--pace and --no-pace cannot be used together")
 	case cgoRequested && pureRequested:
 		return nil, fmt.Errorf("--cgo and --pure cannot be used together")
 	case dynamicRequested && staticRequested:
@@ -437,6 +456,10 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 
 	if archRequested && req.Language != "go" {
 		return nil, fmt.Errorf("--arch is only supported for go builds")
+	}
+
+	if (paceRequested || noPaceRequested) && req.Language != "go" {
+		return nil, fmt.Errorf("--pace and --no-pace are only supported for Go projects")
 	}
 
 	if len(req.GoFlags) != 0 && req.Language != "go" {
