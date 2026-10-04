@@ -1,8 +1,11 @@
-FROM golang:1.27.1-alpine AS build
+ARG GO_VERSION=1.27.1
 
+FROM golang:${GO_VERSION}-alpine AS build
+
+ARG GO_VERSION
 ARG VERSION=dev
-ARG ZIG_VERSION=0.16.0
-ARG ZIG_SHA256=70e49664a74374b48b51e6f3fdfbf437f6395d42509050588bd49abe52ba3d00
+ARG ZIG_VERSION=0.17.0
+ARG ZIG_SHA256=1cbe9df9f27e6b78d14ccbca43b6703a404ef79ef1c463de901d7f088d4e2026
 
 WORKDIR /src
 
@@ -26,7 +29,12 @@ RUN apk add --no-cache ca-certificates curl xz \
  && rm -rf /opt/zig/doc /tmp/zig.tar.xz \
  && /opt/zig/zig version
 
-FROM golang:1.27.1-alpine AS runtime
+RUN curl --fail --location --retry 5 --output /tmp/pace.tar.gz "https://github.com/coalaura/pace/releases/download/pace${GO_VERSION}/pace-${GO_VERSION}-linux-amd64.tar.gz" \
+ && mkdir -p /out/pace \
+ && tar -xzf /tmp/pace.tar.gz --strip-components=1 -C /out/pace bin/pace bin/compilepe bin/asmpe \
+ && rm /tmp/pace.tar.gz
+
+FROM golang:${GO_VERSION}-alpine AS runtime
 
 RUN apk add --no-cache \
     bash \
@@ -36,8 +44,13 @@ RUN apk add --no-cache \
 
 COPY --from=build /out/builder /usr/local/bin/builder
 COPY --from=build /opt/zig /opt/zig
+COPY --from=build /out/pace/ /usr/local/go/bin/
 
-RUN ln -s /opt/zig/zig /usr/bin/zig
+RUN ln -s /opt/zig/zig /usr/bin/zig \
+ && go version \
+ && pace version \
+ && compilepe -V \
+ && asmpe -V
 
 ENTRYPOINT ["builder"]
 
