@@ -64,7 +64,7 @@ func GenerateGo(req *Request) error {
 
 	executable := req.GoExecutable()
 
-	log.Infof("[%s] generating %s\n", executable, req.Project)
+	log.Infof("[%s] go-generating %s\n", executable, req.Project)
 
 	start := time.Now()
 
@@ -74,7 +74,7 @@ func GenerateGo(req *Request) error {
 	}
 
 	if !req.Debug {
-		printDuration(start, "generated")
+		printDuration(start, "go-generated")
 	}
 
 	return nil
