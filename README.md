@@ -58,12 +58,27 @@ Setup fails if no usable package manager can provide a missing tool or if instal
 - `--pure`: disable CGO (the default)
 - `--dyn`, `--dynamic`: dynamically link CGO builds
 - `--stat`, `--static`: statically link CGO builds (the default)
+- `--musl`: select the musl target for Linux CGO builds
+- `--gnu`: select the GNU/glibc target for Linux CGO builds
 - `--compat`, `--compatible`: favor CPU compatibility and disable optimized mode
 - `--opt`, `--optimize`: favor optimization and disable compatibility mode (the default)
 - `--min`, `--minify`: minimize and compress builds
 - `--no-min`, `--no-minify`: disable minification
 
-Opposing build modes are mutually exclusive. Combining `--cgo` with `--pure`, `--dyn` with `--stat`, `--compat` with `--opt` or `--min` with `--no-min` is an error.
+Opposing build modes are mutually exclusive. Combining `--cgo` with `--pure`, `--dyn` with `--stat`, `--musl` with `--gnu`, `--compat` with `--opt` or `--min` with `--no-min` is an error.
+
+Linux CGO builds automatically select musl for static linking and GNU/glibc for dynamic linking. `--musl` and `--gnu` override that selection independently of the link mode; both require `--cgo` and a Linux Go target. The target architecture determines the corresponding Zig triple, such as `x86_64-linux-gnu` or `aarch64-linux-musl`. The `goenv` package exposes the same override through `Options.Libc`, accepting `"musl"`, `"gnu"` or an empty string for automatic selection.
+
+```sh
+builder build go linux --cgo                 # static musl (default)
+builder build go linux --cgo --dyn           # dynamic glibc (default)
+builder build go linux --cgo --stat --gnu    # static glibc
+builder build go linux --cgo --dyn --musl    # dynamic musl
+```
+
+Native dependencies must match the selected libc. Static builds require compatible static archives; dynamic builds require the matching runtime on the destination system.
+
+Zig's bundled glibc support requires dynamic linking. `--stat --gnu` selects the GNU target and requests static linking, but building that combination requires a separate static glibc installation/toolchain; stock Zig reports `libc of the specified target requires dynamic linking`.
 
 Passing `-race` automatically enables CGO, even without `--cgo` or when `--pure` is specified, because Go's race detector requires it.
 
@@ -133,3 +148,7 @@ builder build go --pace
 builder run go --pkg ./cmd/example -- banner.png
 builder test go --no-generate --debug
 ```
+
+## Tests
+
+Run `go test ./...` for the configuration and argument-parsing tests. With Go and Zig available, `go test -tags integration -run TestLinuxCGOLinking -v .` builds Linux CGO executables and checks their ELF interpreters and dynamic segments. This includes the static GNU case, which requires static glibc toolchain support in addition to Zig's bundled libraries.

@@ -19,6 +19,7 @@ type Options struct {
 	Experiments     []string
 	OS              string
 	Arch            string
+	Libc            string // Linux libc: "musl", "gnu", or empty to select by link mode.
 	Cwd             string
 	MetadataEntries int
 	CGO             bool
@@ -172,7 +173,7 @@ func SupportsCGO(targetOS, arch string) bool {
 }
 
 func configureCGO(env map[string]string, ldflags *string, options Options, targetOS, arch string) {
-	var externalLink bool
+	externalLink := targetOS == "linux"
 
 	externalLinkerFlags := make([]string, 0, 2)
 
@@ -180,6 +181,9 @@ func configureCGO(env map[string]string, ldflags *string, options Options, targe
 		externalLink = true
 
 		externalLinkerFlags = append(externalLinkerFlags, "-static")
+	} else if options.Dynamic && targetOS == "linux" {
+		// Zig defaults musl executables to static linking without an explicit override.
+		externalLinkerFlags = append(externalLinkerFlags, "-dynamic")
 	}
 
 	if options.Race && targetOS == "windows" && arch == "amd64" {
@@ -199,7 +203,7 @@ func configureCGO(env map[string]string, ldflags *string, options Options, targe
 	env["CC"] = "zig cc"
 	env["CXX"] = "zig c++"
 
-	zigTarget := zigTargets[targetOS+"/"+arch]
+	zigTarget := resolveZigTarget(targetOS, arch, options.Libc, options.Dynamic)
 
 	if zigTarget != "" {
 		env["CC"] += " -target " + zigTarget
@@ -255,6 +259,23 @@ func configureCGO(env map[string]string, ldflags *string, options Options, targe
 	} else {
 		env["CGO_LDFLAGS"] = "-Wl,--gc-sections"
 	}
+}
+
+func resolveZigTarget(targetOS, arch, libc string, dynamic bool) string {
+	target := zigTargets[targetOS+"/"+arch]
+	if targetOS != "linux" || target == "" {
+		return target
+	}
+
+	if libc == "" {
+		libc = "musl"
+
+		if dynamic {
+			libc = "gnu"
+		}
+	}
+
+	return strings.TrimSuffix(target, "musl") + libc
 }
 
 func appendSDKFlags(command, sdk string) string {

@@ -21,6 +21,7 @@ func prepareGo(req *Request) goenv.Config {
 		CGO:             req.CGO,
 		OS:              req.TargetOS,
 		Arch:            req.TargetArch,
+		Libc:            req.Libc,
 		Race:            isRace,
 		GUI:             req.GUI,
 		Optimize:        !req.Compatible,

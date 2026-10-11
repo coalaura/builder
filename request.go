@@ -16,6 +16,7 @@ type Request struct {
 	Language      string
 	TargetOS      string
 	TargetArch    string
+	Libc          string
 	Target        string
 	Package       string
 	Output        string
@@ -63,6 +64,8 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 		pureRequested       bool
 		dynamicRequested    bool
 		staticRequested     bool
+		muslRequested       bool
+		gnuRequested        bool
 		compatibleRequested bool
 		optimizeRequested   bool
 		minifyRequested     bool
@@ -364,6 +367,12 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 		case "--stat", "--static":
 			staticRequested = true
 			req.Dynamic = false
+		case "--musl":
+			muslRequested = true
+			req.Libc = "musl"
+		case "--gnu":
+			gnuRequested = true
+			req.Libc = "gnu"
 		case "--compat", "--compatible":
 			compatibleRequested = true
 			req.Compatible = true
@@ -406,6 +415,8 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 		return nil, fmt.Errorf("--cgo and --pure cannot be used together")
 	case dynamicRequested && staticRequested:
 		return nil, fmt.Errorf("--dynamic and --static cannot be used together")
+	case muslRequested && gnuRequested:
+		return nil, fmt.Errorf("--musl and --gnu cannot be used together")
 	case compatibleRequested && optimizeRequested:
 		return nil, fmt.Errorf("--compatible and --optimize cannot be used together")
 	case minifyRequested && noMinifyRequested:
@@ -414,6 +425,8 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 		return nil, fmt.Errorf("--generate and --no-generate cannot be used together")
 	case !req.CGO && req.Dynamic:
 		return nil, fmt.Errorf("--dynamic requires --cgo")
+	case !req.CGO && req.Libc != "":
+		return nil, fmt.Errorf("--%s requires --cgo", req.Libc)
 	}
 
 	var err error
@@ -429,6 +442,10 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 
 	if req.TargetArch == "" {
 		req.TargetArch = runtime.GOARCH
+	}
+
+	if req.Libc != "" && req.TargetOS != "linux" {
+		return nil, fmt.Errorf("--%s is only supported for Linux targets", req.Libc)
 	}
 
 	if req.CGO && !goenv.SupportsCGO(req.TargetOS, req.TargetArch) {
@@ -456,6 +473,10 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 
 	if archRequested && req.Language != "go" {
 		return nil, fmt.Errorf("--arch is only supported for go builds")
+	}
+
+	if req.Libc != "" && req.Language != "go" {
+		return nil, fmt.Errorf("--%s is only supported for Go projects", req.Libc)
 	}
 
 	if (paceRequested || noPaceRequested) && req.Language != "go" {
