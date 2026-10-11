@@ -3,7 +3,6 @@ package goenv
 
 import (
 	"os"
-	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -259,13 +258,12 @@ func configureCGO(env map[string]string, ldflags *string, options Options, targe
 }
 
 func appendSDKFlags(command, sdk string) string {
-	frameworks := "-F" + filepath.Join(sdk, "System", "Library", "Frameworks")
-
+	// Zig prefixes absolute library and framework search paths with the sysroot.
 	arguments := [...]string{
 		"--sysroot",
 		sdk,
 		"-L/usr/lib",
-		frameworks,
+		"-F/System/Library/Frameworks",
 	}
 
 	quotedArguments := [len(arguments)]string{}
@@ -281,7 +279,7 @@ func appendSDKFlags(command, sdk string) string {
 
 	var result strings.Builder
 
-	result.Grow(len(command) + len(sdk)*2 + 64)
+	result.Grow(len(command) + len(sdk) + 64)
 
 	result.WriteString(command)
 
