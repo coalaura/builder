@@ -34,6 +34,7 @@ type Options struct {
 type Config struct {
 	BuildFlags []string
 	LDFlags    string
+	Libc       string
 	Mode       string
 	Env        map[string]string
 }
@@ -66,6 +67,15 @@ var cleanEnvironmentKeys = []string{
 	"CGO_CXXFLAGS",
 	"CGO_FFLAGS",
 	"CGO_LDFLAGS",
+}
+
+// Summary describes the build mode and applicable target libc.
+func (config Config) Summary() string {
+	if config.Libc != "" {
+		return "mode: " + config.Mode + "; libc: " + config.Libc
+	}
+
+	return "mode: " + config.Mode
 }
 
 // Prepare returns all environment overrides and flags needed for a build.
@@ -125,6 +135,8 @@ func Prepare(options Options) Config {
 
 	env["GOEXPERIMENT"] = strings.Join(experiments, ",")
 
+	var libc string
+
 	mode := "pure"
 
 	if options.CGO {
@@ -134,6 +146,10 @@ func Prepare(options Options) Config {
 			mode += ",dyn"
 		} else if targetOS == "linux" || targetOS == "windows" {
 			mode += ",static"
+		}
+
+		if targetOS == "linux" {
+			libc = resolveLibc(options.Libc, options.Dynamic)
 		}
 	}
 
@@ -161,6 +177,7 @@ func Prepare(options Options) Config {
 		Env:        env,
 		BuildFlags: buildFlags,
 		LDFlags:    ldflags,
+		Libc:       libc,
 		Mode:       mode,
 	}
 }
@@ -267,15 +284,19 @@ func resolveZigTarget(targetOS, arch, libc string, dynamic bool) string {
 		return target
 	}
 
-	if libc == "" {
-		libc = "musl"
+	return strings.TrimSuffix(target, "musl") + resolveLibc(libc, dynamic)
+}
 
-		if dynamic {
-			libc = "gnu"
-		}
+func resolveLibc(libc string, dynamic bool) string {
+	if libc != "" {
+		return libc
 	}
 
-	return strings.TrimSuffix(target, "musl") + libc
+	if dynamic {
+		return "gnu"
+	}
+
+	return "musl"
 }
 
 func appendSDKFlags(command, sdk string) string {

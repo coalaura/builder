@@ -21,7 +21,7 @@ func ExecuteBench(req *Request) error {
 			target = "./..."
 		}
 
-		log.Infof("[%s] benchmarking %s (mode: %s)\n", executable, target, cfg.Mode)
+		log.Infof("[%s] benchmarking %s (%s)\n", executable, target, cfg.Summary())
 
 		args := []string{"test"}
 

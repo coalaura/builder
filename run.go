@@ -34,7 +34,7 @@ func ExecuteRun(req *Request) error {
 
 		cfg := prepareGo(req)
 
-		log.Infof("[%s] running %s (mode: %s)\n", executable, main, cfg.Mode)
+		log.Infof("[%s] running %s (%s)\n", executable, main, cfg.Summary())
 
 		args := []string{"run"}
 

@@ -38,7 +38,7 @@ func ExecuteBuild(req *Request) error {
 			output = filepath.Join(req.Cwd, output)
 		}
 
-		log.Infof("[%s/%s/%s/%s] building %s (mode: %s)\n", executable, req.TargetOS, req.TargetArch, filepath.Base(output), main, cfg.Mode)
+		log.Infof("[%s/%s/%s/%s] building %s (%s)\n", executable, req.TargetOS, req.TargetArch, filepath.Base(output), main, cfg.Summary())
 
 		args := []string{"build"}
 

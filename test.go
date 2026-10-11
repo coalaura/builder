@@ -37,7 +37,7 @@ func ExecuteTest(req *Request) error {
 			target = "./..."
 		}
 
-		log.Infof("[%s] testing %s (mode: %s)\n", executable, target, cfg.Mode)
+		log.Infof("[%s] testing %s (%s)\n", executable, target, cfg.Summary())
 
 		args := []string{"test"}
 
