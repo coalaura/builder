@@ -32,7 +32,10 @@ func ExecuteRun(req *Request) error {
 			return err
 		}
 
-		cfg := prepareGo(req)
+		cfg, err := prepareGo(req)
+		if err != nil {
+			return err
+		}
 
 		log.Infof("[%s] running %s (%s)\n", executable, main, cfg.Summary())
 

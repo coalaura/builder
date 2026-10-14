@@ -84,6 +84,8 @@ Passing `-race` automatically enables CGO, even without `--cgo` or when `--pure`
 
 When cross-compiling a Darwin CGO build, builder uses an existing macOS SDK when one is available. It checks a valid `SDKROOT` first, then xmac and OSXCross layouts under the invocation directory, SDK/SDKs directories beside `bin` entries in `PATH`, xmac and OSXCross layouts under the home directory and finally common `/usr/local/osxcross` and `/opt/osxcross` prefixes on Linux. SDK discovery is optional; builder does not download an SDK and native macOS discovery remains Zig's responsibility.
 
+For these SDK builds, the CLI adapts existing external `-L` and `-F` directories to relative paths before invoking Zig. This prevents project libraries and frameworks from being searched inside the SDK while retaining the full sysroot for system libraries, frameworks and their re-exports. The adapter is part of the CLI; standalone `goenv.Prepare` callers continue to receive direct Zig commands.
+
 ### Project options
 
 - `--pace`: use PACE instead of Go for Go projects

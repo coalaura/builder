@@ -26,7 +26,10 @@ func ExecuteBuild(req *Request) error {
 			return err
 		}
 
-		cfg := prepareGo(req)
+		cfg, err := prepareGo(req)
+		if err != nil {
+			return err
+		}
 
 		name := req.Output
 		if name == "" {

@@ -8,7 +8,7 @@ import (
 	"github.com/coalaura/builder/goenv"
 )
 
-func prepareGo(req *Request) goenv.Config {
+func prepareGo(req *Request) (goenv.Config, error) {
 	isRace := goBoolFlagEnabled(req.GoFlags, "race")
 
 	if isRace && !req.CGO {
@@ -17,7 +17,7 @@ func prepareGo(req *Request) goenv.Config {
 		req.CGO = true
 	}
 
-	return goenv.Prepare(goenv.Options{
+	config := goenv.Prepare(goenv.Options{
 		CGO:             req.CGO,
 		OS:              req.TargetOS,
 		Arch:            req.TargetArch,
@@ -31,6 +31,13 @@ func prepareGo(req *Request) goenv.Config {
 		Cwd:             req.Cwd,
 		Experiments:     strings.Split(os.Getenv("GOEXPERIMENT"), ","),
 	})
+
+	err := wrapDarwinCompilers(config.Env)
+	if err != nil {
+		return goenv.Config{}, err
+	}
+
+	return config, nil
 }
 
 func goBoolFlagEnabled(args []string, name string) bool {

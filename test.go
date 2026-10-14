@@ -28,7 +28,10 @@ func ExecuteTest(req *Request) error {
 			return err
 		}
 
-		cfg := prepareGo(req)
+		cfg, err := prepareGo(req)
+		if err != nil {
+			return err
+		}
 
 		executable := req.GoExecutable()
 

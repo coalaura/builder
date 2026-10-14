@@ -48,6 +48,9 @@ func NewCLI() *cli.Command {
 			NewSubcommand("bench", "benchmark a project", []string{"go", "js"}, false),
 			NewSignSubcommand(),
 			NewVerifySubcommand(),
+
+			// big time darwin tomfoolery
+			newDarwinCompilerCommand(),
 		},
 	}
 }
