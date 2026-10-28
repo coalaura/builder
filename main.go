@@ -66,6 +66,7 @@ func NewSubcommand(name, usage string, languages []string, allowOS bool) *cli.Co
 		parts,
 		"[--pace]", "[--no-pace]",
 		"[--cgo]", "[--pure]",
+		"[--include dir]...",
 		"[--dyn]", "[--stat]",
 		"[--musl]", "[--gnu]",
 		"[--compat]", "[--opt]",

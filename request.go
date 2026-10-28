@@ -17,6 +17,7 @@ type Request struct {
 	TargetOS      string
 	TargetArch    string
 	Libc          string
+	IncludeDirs   []string
 	Target        string
 	Package       string
 	Output        string
@@ -126,6 +127,29 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 
 				req.GoFlags = append(req.GoFlags, args[i])
 			}
+
+			continue
+		}
+
+		if lower == "--include" {
+			if i+1 >= len(args) || args[i+1] == "" || strings.HasPrefix(args[i+1], "--") {
+				return nil, fmt.Errorf("--include requires a directory")
+			}
+
+			i++
+
+			req.IncludeDirs = append(req.IncludeDirs, args[i])
+
+			continue
+		}
+
+		if strings.HasPrefix(lower, "--include=") {
+			_, directory, _ := strings.Cut(arg, "=")
+			if directory == "" {
+				return nil, fmt.Errorf("--include requires a directory")
+			}
+
+			req.IncludeDirs = append(req.IncludeDirs, directory)
 
 			continue
 		}
@@ -427,6 +451,8 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 		return nil, fmt.Errorf("--dynamic requires --cgo")
 	case !req.CGO && req.Libc != "":
 		return nil, fmt.Errorf("--%s requires --cgo", req.Libc)
+	case !req.CGO && len(req.IncludeDirs) != 0 && !goBoolFlagEnabled(req.GoFlags, "race"):
+		return nil, fmt.Errorf("--include requires --cgo or -race")
 	}
 
 	var err error
@@ -477,6 +503,10 @@ func parseRequest(command string, args, languages []string, allowOS bool) (*Requ
 
 	if req.Libc != "" && req.Language != "go" {
 		return nil, fmt.Errorf("--%s is only supported for Go projects", req.Libc)
+	}
+
+	if len(req.IncludeDirs) != 0 && req.Language != "go" {
+		return nil, fmt.Errorf("--include is only supported for Go projects")
 	}
 
 	if (paceRequested || noPaceRequested) && req.Language != "go" {

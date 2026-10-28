@@ -17,6 +17,11 @@ func prepareGo(req *Request) (goenv.Config, error) {
 		req.CGO = true
 	}
 
+	includeFlags, err := cgoIncludeFlags(req)
+	if err != nil {
+		return goenv.Config{}, err
+	}
+
 	config := goenv.Prepare(goenv.Options{
 		CGO:             req.CGO,
 		OS:              req.TargetOS,
@@ -32,7 +37,9 @@ func prepareGo(req *Request) (goenv.Config, error) {
 		Experiments:     strings.Split(os.Getenv("GOEXPERIMENT"), ","),
 	})
 
-	err := wrapDarwinCompilers(config.Env)
+	config.Env["CGO_CPPFLAGS"] = includeFlags
+
+	err = wrapDarwinCompilers(config.Env)
 	if err != nil {
 		return goenv.Config{}, err
 	}

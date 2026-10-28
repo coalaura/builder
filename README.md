@@ -86,6 +86,20 @@ When cross-compiling a Darwin CGO build, builder uses an existing macOS SDK when
 
 For these SDK builds, the CLI adapts existing external `-L` and `-F` directories to relative paths before invoking Zig. This prevents project libraries and frameworks from being searched inside the SDK while retaining the full sysroot for system libraries, frameworks and their re-exports. The adapter is part of the CLI; standalone `goenv.Prepare` callers continue to receive direct Zig commands.
 
+### CGO header directories
+
+Use `--include <dir>` or `--include=<dir>` to add a header search directory. Repeat the option for multiple directories; relative paths resolve from the directory where you invoke builder. Explicit paths must exist and be directories. This option applies to Go `build`, `run`, `test` and `bench` commands and requires `--cgo` (or `-race`, which enables CGO).
+
+With CGO enabled, builder also automatically adds existing `include/` and `includes/` directories directly under the selected project root. Explicit directories are searched first, in argument order, followed by `include/` and then `includes/`. Duplicate paths are removed. Discovery is not recursive and does not enable CGO by itself.
+
+Builder passes absolute `-I` paths through `CGO_CPPFLAGS`, so both C and C++ compilation can find the headers even in subpackages. Paths containing spaces are supported. This CLI behavior applies to compilation, not the preceding `go generate` step; standalone `goenv.Prepare` callers do not perform directory discovery. Header directories do not add library search paths or link libraries; declare those with the appropriate `#cgo LDFLAGS` or `#cgo pkg-config` directives.
+
+```sh
+builder build go --cgo                                      # discovers include/ and includes/
+builder build go --cgo --include ./vendor/mylib/headers
+builder test go --cgo --include "./native headers" --include ./third_party/include
+```
+
 ### Project options
 
 - `--pace`: use PACE instead of Go for Go projects
