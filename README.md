@@ -20,7 +20,23 @@ config := goenv.Prepare(goenv.Options{
 
 ## Install
 
-Download the latest signed binary for Windows, Linux or macOS from [GitHub Releases](https://github.com/coalaura/builder/releases/latest), verify it against `SHA256SUMS` and place it somewhere in your `PATH`.
+Install the latest signed release on Linux or macOS:
+
+```sh
+curl -fsSL https://src.ws2.sh/builder/install.sh | sh
+```
+
+Or on Windows with PowerShell:
+
+```powershell
+irm https://src.ws2.sh/builder/install.ps1 | iex
+```
+
+The installers resolve the latest stable release and verify the download against that release's `SHA256SUMS`. Published binaries currently support amd64 (x86-64) only. Linux and macOS install to `/usr/local/bin` using root or `sudo`, and print the line to add to your shell profile if that directory is missing from `PATH`. Windows installs to `%USERPROFILE%\.bin` and adds it to your user and current-session `PATH`. Override the directory with `--dir DIRECTORY` (shell, for a user-writable directory without `sudo`) or `-InstallDir DIRECTORY` (PowerShell).
+
+After installation, both installers ask `Run builder setup now? [y/N]`. Enter `y` or `yes` to run setup; an empty answer or any other response skips it. Setup is also skipped when interactive input is unavailable. You can run `builder setup` later at any time.,0
+
+You can also download a binary directly from [GitHub Releases](https://github.com/coalaura/builder/releases/latest), verify it against `SHA256SUMS` and place it somewhere in your `PATH`.
 
 Alternatively, clone the repository and build builder from source. Despite the name, builder is not required to build the builder (though you can [use the builder to build the builder](.github/workflows/release.yml#L29)).
 
