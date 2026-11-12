@@ -1,9 +1,9 @@
 module github.com/coalaura/builder
 
-go 1.27.3
+go 1.27.4
 
 require (
-	github.com/coalaura/plain v1.6.5
+	github.com/coalaura/plain v1.6.6
 	github.com/sassoftware/relic/v8 v8.2.0
 	github.com/urfave/cli/v3 v3.14.0
 )
@@ -18,11 +18,11 @@ require (
 	github.com/howeyc/gopass v0.0.0-20210920133722-c8aef6fb66ef // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/spf13/cobra v1.10.2 // indirect
-	github.com/spf13/pflag v1.0.10 // indirect
+	github.com/spf13/pflag v1.1.0 // indirect
 	github.com/zalando/go-keyring v0.2.8 // indirect
-	golang.org/x/crypto v0.58.0 // indirect
-	golang.org/x/sys v0.49.0 // indirect
-	golang.org/x/term v0.47.0 // indirect
+	golang.org/x/crypto v0.59.0 // indirect
+	golang.org/x/sys v0.50.0 // indirect
+	golang.org/x/term v0.48.0 // indirect
 	howett.net/plist v1.0.1 // indirect
 	software.sslmate.com/src/go-pkcs12 v0.7.4 // indirect
 )
