@@ -13,6 +13,7 @@ env:
 
 jobs:
   build:
+    needs: container
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -30,6 +31,7 @@ jobs:
       id: build
       uses: coalaura/build@v1
       with:
+        version: ${{ github.ref_name }}
         os: ${{ matrix.goos }}
         arch: amd64
         generate: false
@@ -41,6 +43,7 @@ jobs:
       id: sign
       uses: coalaura/sign@v1
       with:
+        version: ${{ github.ref_name }}
         path: ${{ steps.build.outputs.path }}
         key: ${{ secrets.COALAURA_PFX }}
         passphrase: ${{ secrets.COALAURA_PFX_PASSWORD }}
